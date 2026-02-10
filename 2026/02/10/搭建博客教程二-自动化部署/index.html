@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" integrity="sha256-VHqXKFhhMxcpubYf9xiWdCiojEbY9NexQ4jh8AxbvcM=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"2023andrewyang.github.io","root":"/","images":"/images","scheme":"Gemini","darkmode":true,"version":"8.27.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"default","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":true,"style":"mac"},"fold":{"enable":false,"height":500},"language":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="上一篇教程里，我们从零开始搭建好了一个博客，也成功把它发布到了网上。但每次写完文章，都要手动敲一串命令去部署，说实话……还是有点烦的😅 1hexo clean &amp;&amp; hexo generate &amp;&amp; hexo deploy  那有没有一种方式，写完文章往 GitHub 上一推，博客就自动更新了呢？ 答案是：有的！用 GitHub Actions 就能实现全自动部署">
+<meta property="og:type" content="article">
+<meta property="og:title" content="🚀 小白搭建个人博客教程（二）—— 自动化部署">
+<meta property="og:url" content="https://2023andrewyang.github.io/2026/02/10/%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%E6%95%99%E7%A8%8B%E4%BA%8C-%E8%87%AA%E5%8A%A8%E5%8C%96%E9%83%A8%E7%BD%B2/index.html">
+<meta property="og:site_name" content="Andrew&#39;s Blog">
+<meta property="og:description" content="上一篇教程里，我们从零开始搭建好了一个博客，也成功把它发布到了网上。但每次写完文章，都要手动敲一串命令去部署，说实话……还是有点烦的😅 1hexo clean &amp;&amp; hexo generate &amp;&amp; hexo deploy  那有没有一种方式，写完文章往 GitHub 上一推，博客就自动更新了呢？ 答案是：有的！用 GitHub Actions 就能实现全自动部署">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-02-10T10:00:00.000Z">
+<meta property="article:modified_time" content="2026-02-10T14:15:02.161Z">
+<meta property="article:author" content="Andrew Yang">
+<meta property="article:tag" content="Hexo">
+<meta property="article:tag" content="博客搭建">
+<meta property="article:tag" content="GitHub Actions">
+<meta property="article:tag" content="自动化部署">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://2023andrewyang.github.io/2026/02/10/%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%E6%95%99%E7%A8%8B%E4%BA%8C-%E8%87%AA%E5%8A%A8%E5%8C%96%E9%83%A8%E7%BD%B2/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://2023andrewyang.github.io/2026/02/10/%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%E6%95%99%E7%A8%8B%E4%BA%8C-%E8%87%AA%E5%8A%A8%E5%8C%96%E9%83%A8%E7%BD%B2/","path":"2026/02/10/搭建博客教程二-自动化部署/","title":"🚀 小白搭建个人博客教程（二）—— 自动化部署"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>🚀 小白搭建个人博客教程（二）—— 自动化部署 | Andrew's Blog</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/motion.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Andrew's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9C%A8%E5%BC%80%E5%A7%8B%E4%B9%8B%E5%89%8D%EF%BC%8C%E5%85%88%E6%90%9E%E6%98%8E%E7%99%BD%E6%88%91%E4%BB%AC%E8%A6%81%E5%81%9A%E4%BB%80%E4%B9%88"><span class="nav-number">1.</span> <span class="nav-text">在开始之前，先搞明白我们要做什么</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%AC%E4%B8%80%E6%AD%A5%EF%BC%9A%E7%90%86%E8%A7%A3%E2%80%9D%E4%B8%A4%E4%B8%AA%E5%88%86%E6%94%AF%E2%80%9D%E7%9A%84%E6%A6%82%E5%BF%B5"><span class="nav-number">2.</span> <span class="nav-text">第一步：理解”两个分支”的概念</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%AC%E4%BA%8C%E6%AD%A5%EF%BC%9A%E6%9B%B4%E6%96%B0-gitignore-%E6%96%87%E4%BB%B6"><span class="nav-number">3.</span> <span class="nav-text">第二步：更新 .gitignore 文件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%AC%E4%B8%89%E6%AD%A5%EF%BC%9A%E5%88%9B%E5%BB%BA-GitHub-Actions-%E5%B7%A5%E4%BD%9C%E6%B5%81%E6%96%87%E4%BB%B6"><span class="nav-number">4.</span> <span class="nav-text">第三步：创建 GitHub Actions 工作流文件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%AC%E5%9B%9B%E6%AD%A5%EF%BC%9A%E5%9C%A8-GitHub-%E4%B8%8A%E9%85%8D%E7%BD%AE%E6%9D%83%E9%99%90"><span class="nav-number">5.</span> <span class="nav-text">第四步：在 GitHub 上配置权限</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%AC%E4%BA%94%E6%AD%A5%EF%BC%9A%E7%A1%AE%E8%AE%A4-GitHub-Pages-%E7%9A%84%E8%AE%BE%E7%BD%AE"><span class="nav-number">6.</span> <span class="nav-text">第五步：确认 GitHub Pages 的设置</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%AC%E5%85%AD%E6%AD%A5%EF%BC%9A%E6%8E%A8%E9%80%81%E6%BA%90%E7%A0%81%E5%88%B0-GitHub"><span class="nav-number">7.</span> <span class="nav-text">第六步：推送源码到 GitHub</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%A5%E5%90%8E%E5%8F%91%E5%B8%83%E6%96%B0%E6%96%87%E7%AB%A0%E7%9A%84%E6%B5%81%E7%A8%8B"><span class="nav-number">8.</span> <span class="nav-text">以后发布新文章的流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%F0%9F%92%A1-%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="nav-number">9.</span> <span class="nav-text">💡 常见问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Q1%EF%BC%9Asource-%E5%92%8C-main-%E4%B8%A4%E4%B8%AA%E5%88%86%E6%94%AF%E9%9C%80%E8%A6%81%E5%90%88%E5%B9%B6%E5%90%97%EF%BC%9F"><span class="nav-number">9.1.</span> <span class="nav-text">Q1：source 和 main 两个分支需要合并吗？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q2%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88%E7%94%A8%E5%90%8C%E4%B8%80%E4%B8%AA%E4%BB%93%E5%BA%93%E7%9A%84%E4%B8%A4%E4%B8%AA%E5%88%86%E6%94%AF%EF%BC%8C%E8%80%8C%E4%B8%8D%E6%98%AF%E4%B8%A4%E4%B8%AA%E4%BB%93%E5%BA%93%EF%BC%9F"><span class="nav-number">9.2.</span> <span class="nav-text">Q2：为什么用同一个仓库的两个分支，而不是两个仓库？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q3%EF%BC%9A%E9%83%A8%E7%BD%B2%E5%A4%B1%E8%B4%A5%E4%BA%86%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F"><span class="nav-number">9.3.</span> <span class="nav-text">Q3：部署失败了怎么办？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Q4%EF%BC%9A%E6%88%91%E8%83%BD%E4%B8%8D%E8%83%BD%E5%9C%A8%E6%9C%AC%E5%9C%B0%E9%A2%84%E8%A7%88%E6%96%87%E7%AB%A0%E5%86%8D%E6%8E%A8%E9%80%81%EF%BC%9F"><span class="nav-number">9.4.</span> <span class="nav-text">Q4：我能不能在本地预览文章再推送？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%F0%9F%8E%89-%E6%80%BB%E7%BB%93"><span class="nav-number">10.</span> <span class="nav-text">🎉 总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Andrew Yang"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Andrew Yang</p>
+  <div class="site-description" itemprop="description">记录技术、生活与学习</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">2</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://2023andrewyang.github.io/2026/02/10/%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2%E6%95%99%E7%A8%8B%E4%BA%8C-%E8%87%AA%E5%8A%A8%E5%8C%96%E9%83%A8%E7%BD%B2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Andrew Yang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Andrew's Blog">
+      <meta itemprop="description" content="记录技术、生活与学习">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="🚀 小白搭建个人博客教程（二）—— 自动化部署 | Andrew's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          🚀 小白搭建个人博客教程（二）—— 自动化部署
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-02-10 18:00:00 / 修改时间：22:15:02" itemprop="dateCreated datePublished" datetime="2026-02-10T18:00:00+08:00">2026-02-10</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%8A%80%E6%9C%AF%E6%96%87%E7%AB%A0/" itemprop="url" rel="index"><span itemprop="name">技术文章</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-break"></span>
+    <span class="post-meta-item" title="本文字数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-file-word"></i>
+      </span>
+      <span class="post-meta-item-text">本文字数：</span>
+      <span>2.8k</span>
+    </span>
+    <span class="post-meta-item" title="阅读时长">
+      <span class="post-meta-item-icon">
+        <i class="far fa-clock"></i>
+      </span>
+      <span class="post-meta-item-text">阅读时长 &asymp;</span>
+      <span>10 分钟</span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>上一篇教程里，我们从零开始搭建好了一个博客，也成功把它发布到了网上。但每次写完文章，都要手动敲一串命令去部署，说实话……还是有点烦的😅</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hexo clean &amp;&amp; hexo generate &amp;&amp; hexo deploy</span><br></pre></td></tr></table></figure>
+
+<p>那有没有一种方式，<strong>写完文章往 GitHub 上一推，博客就自动更新了呢？</strong></p>
+<p>答案是：有的！用 <strong>GitHub Actions</strong> 就能实现全自动部署。今天我们就来把这套流程配好，以后写博客就只需要专注于写作本身 ✍️</p>
+<span id="more"></span>
+
+<h2 id="在开始之前，先搞明白我们要做什么"><a href="#在开始之前，先搞明白我们要做什么" class="headerlink" title="在开始之前，先搞明白我们要做什么"></a>在开始之前，先搞明白我们要做什么</h2><p>先来理解一下整个自动化流程，其实就像一条”流水线”：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">你写好 Markdown 文章</span><br><span class="line">       ↓</span><br><span class="line">推送到 GitHub（git push）</span><br><span class="line">       ↓</span><br><span class="line">GitHub Actions 自动触发（相当于一个云端机器人）</span><br><span class="line">       ↓</span><br><span class="line">机器人帮你执行 hexo generate（把文章编译成网页）</span><br><span class="line">       ↓</span><br><span class="line">机器人帮你把生成的网页部署到 GitHub Pages</span><br><span class="line">       ↓</span><br><span class="line">博客自动更新，读者就能看到新文章了 🎉</span><br></pre></td></tr></table></figure>
+
+<p>简单来说：<strong>你只管写文章、推代码，剩下的事情交给机器人。</strong></p>
+<hr>
+<h2 id="第一步：理解”两个分支”的概念"><a href="#第一步：理解”两个分支”的概念" class="headerlink" title="第一步：理解”两个分支”的概念"></a>第一步：理解”两个分支”的概念</h2><p>这一步不需要你操作什么，但理解它非常重要，不然后面会一头雾水。</p>
+<p>我们会在<strong>同一个 GitHub 仓库</strong>里使用<strong>两个分支</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>分支</th>
+<th>存什么</th>
+<th>谁来管</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>source</code></td>
+<td>博客源码（你写的 Markdown 文章、配置文件等）</td>
+<td><strong>你</strong>来管</td>
+</tr>
+<tr>
+<td><code>main</code></td>
+<td>生成的静态网页（HTML&#x2F;CSS&#x2F;JS）</td>
+<td><strong>机器人</strong>自动管</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>🤔 <strong>为什么要分两个分支？</strong></p>
+<p>你可以这样理解：<code>source</code> 分支是你的**”厨房”<strong>，放着原材料（Markdown 文章、配置文件）；<code>main</code> 分支是</strong>“餐桌”**，放着做好的菜（编译好的网页）。</p>
+<p>GitHub Pages（也就是展示你博客的服务）只看”餐桌”上有什么。而你平时只需要在”厨房”里干活——写文章、改配置。至于”把菜端上桌”这件事，GitHub Actions 会帮你自动完成。</p>
+<p>所以这两个分支<strong>不需要合并</strong>，它们的内容完全不同——一个是原材料，一个是成品，各管各的。</p>
+</blockquote>
+<hr>
+<h2 id="第二步：更新-gitignore-文件"><a href="#第二步：更新-gitignore-文件" class="headerlink" title="第二步：更新 .gitignore 文件"></a>第二步：更新 <code>.gitignore</code> 文件</h2><p>在推送源码之前，我们需要告诉 Git：”有些文件不需要上传”。</p>
+<p>用编辑器打开项目根目录下的 <code>.gitignore</code> 文件（如果没有就新建一个），把内容改成这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">.DS_Store</span><br><span class="line">Thumbs.db</span><br><span class="line">db.json</span><br><span class="line">*.log</span><br><span class="line">node_modules/</span><br><span class="line">public/</span><br><span class="line">.deploy*/</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>逐行解释一下：</p>
+<ul>
+<li><code>.DS_Store</code> &#x2F; <code>Thumbs.db</code>：macOS 和 Windows 系统自动生成的缓存文件，没用</li>
+<li><code>db.json</code>：Hexo 的数据库缓存文件，每次 <code>hexo generate</code> 都会重新生成</li>
+<li><code>*.log</code>：日志文件，不需要上传</li>
+<li><code>node_modules/</code>：依赖包文件夹，体积巨大（几百 MB），别人拿到你的源码后执行 <code>npm install</code> 就能自动下载，所以不用上传</li>
+<li><code>public/</code>：Hexo 生成的静态文件，机器人会在云端重新生成，不需要上传</li>
+<li><code>.deploy*/</code>：Hexo 部署时产生的临时文件夹</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="第三步：创建-GitHub-Actions-工作流文件"><a href="#第三步：创建-GitHub-Actions-工作流文件" class="headerlink" title="第三步：创建 GitHub Actions 工作流文件"></a>第三步：创建 GitHub Actions 工作流文件</h2><p>这一步是整个自动化的核心——我们要写一个”剧本”，告诉 GitHub 的机器人该怎么帮我们部署。</p>
+<p><strong>首先</strong>，在项目根目录下创建文件夹和文件：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">📁 你的博客项目/</span><br><span class="line">  └── 📁 .github/</span><br><span class="line">       └── 📁 workflows/</span><br><span class="line">            └── 📄 deploy.yml    ← 就是这个文件</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <code>.github/workflows/</code> 是 GitHub Actions 的固定路径，GitHub 会自动识别这个目录下的 <code>.yml</code> 文件并执行。</p>
+</blockquote>
+<p><strong>然后</strong>，在 <code>deploy.yml</code> 里填入以下内容：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">name:</span> <span class="string">Deploy</span> <span class="string">Hexo</span> <span class="string">Blog</span></span><br><span class="line"></span><br><span class="line"><span class="attr">on:</span></span><br><span class="line">  <span class="attr">push:</span></span><br><span class="line">    <span class="attr">branches:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">source</span>  <span class="comment"># 当 source 分支有推送时触发</span></span><br><span class="line"></span><br><span class="line"><span class="attr">jobs:</span></span><br><span class="line">  <span class="attr">build-and-deploy:</span></span><br><span class="line">    <span class="attr">runs-on:</span> <span class="string">ubuntu-latest</span></span><br><span class="line"></span><br><span class="line">    <span class="attr">steps:</span></span><br><span class="line">      <span class="comment"># 1. 检出源码</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">Checkout</span> <span class="string">source</span></span><br><span class="line">        <span class="attr">uses:</span> <span class="string">actions/checkout@v4</span></span><br><span class="line">        <span class="attr">with:</span></span><br><span class="line">          <span class="attr">fetch-depth:</span> <span class="number">0</span></span><br><span class="line"></span><br><span class="line">      <span class="comment"># 2. 设置 Node.js 环境</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">Setup</span> <span class="string">Node.js</span></span><br><span class="line">        <span class="attr">uses:</span> <span class="string">actions/setup-node@v4</span></span><br><span class="line">        <span class="attr">with:</span></span><br><span class="line">          <span class="attr">node-version:</span> <span class="string">&#x27;20&#x27;</span></span><br><span class="line">          <span class="attr">cache:</span> <span class="string">&#x27;npm&#x27;</span></span><br><span class="line"></span><br><span class="line">      <span class="comment"># 3. 安装依赖</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">Install</span> <span class="string">dependencies</span></span><br><span class="line">        <span class="attr">run:</span> <span class="string">npm</span> <span class="string">ci</span></span><br><span class="line"></span><br><span class="line">      <span class="comment"># 4. 生成静态文件</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">Generate</span> <span class="string">static</span> <span class="string">files</span></span><br><span class="line">        <span class="attr">run:</span> <span class="string">npx</span> <span class="string">hexo</span> <span class="string">clean</span> <span class="string">&amp;&amp;</span> <span class="string">npx</span> <span class="string">hexo</span> <span class="string">generate</span></span><br><span class="line"></span><br><span class="line">      <span class="comment"># 5. 部署到 GitHub Pages</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">Deploy</span> <span class="string">to</span> <span class="string">GitHub</span> <span class="string">Pages</span></span><br><span class="line">        <span class="attr">uses:</span> <span class="string">peaceiris/actions-gh-pages@v4</span></span><br><span class="line">        <span class="attr">with:</span></span><br><span class="line">          <span class="attr">github_token:</span> <span class="string">$&#123;&#123;</span> <span class="string">secrets.GITHUB_TOKEN</span> <span class="string">&#125;&#125;</span></span><br><span class="line">          <span class="attr">publish_dir:</span> <span class="string">./public</span></span><br><span class="line">          <span class="attr">publish_branch:</span> <span class="string">main</span></span><br><span class="line">          <span class="attr">user_name:</span> <span class="string">&#x27;github-actions[bot]&#x27;</span></span><br><span class="line">          <span class="attr">user_email:</span> <span class="string">&#x27;github-actions[bot]@users.noreply.github.com&#x27;</span></span><br><span class="line">          <span class="attr">commit_message:</span> <span class="string">&#x27;Deploy: $&#123;&#123; github.event.head_commit.message &#125;&#125;&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>别被这一大段吓到，我来逐块解释：</p>
+<p><strong>触发条件（<code>on</code> 部分）</strong>：</p>
+<ul>
+<li><code>push</code> + <code>branches: source</code>：只有当你往 <code>source</code> 分支推送代码时，才会触发这个流程。推到其他分支不会有反应。</li>
+</ul>
+<p><strong>运行环境（<code>runs-on</code>）</strong>：</p>
+<ul>
+<li><code>ubuntu-latest</code>：GitHub 提供的免费云服务器，用的是最新版 Ubuntu 系统。相当于 GitHub 借你一台电脑用一会儿。</li>
+</ul>
+<p><strong>步骤详解（<code>steps</code> 部分）</strong>：</p>
+<ol>
+<li><strong>Checkout source</strong>：把你的源码从 GitHub 下载到这台云服务器上。<code>fetch-depth: 0</code> 表示获取完整的历史记录。</li>
+<li><strong>Setup Node.js</strong>：在云服务器上安装 Node.js 20 版本。<code>cache: &#39;npm&#39;</code> 会缓存依赖，下次构建更快。</li>
+<li><strong>Install dependencies</strong>：执行 <code>npm ci</code> 安装依赖。这和你本地的 <code>npm install</code> 类似，但更适合自动化环境（更干净、更快）。</li>
+<li><strong>Generate static files</strong>：先清理旧文件，再生成新的静态网页，和你本地手动执行的命令一模一样。</li>
+<li><strong>Deploy to GitHub Pages</strong>：把 <code>public/</code> 文件夹里生成的内容，推送到 <code>main</code> 分支。<ul>
+<li><code>github_token</code>：这是 GitHub <strong>自动提供</strong>的令牌，你不需要额外配置，它让机器人有权限往你的仓库推送代码。</li>
+<li><code>publish_dir: ./public</code>：告诉机器人要部署的是 <code>public</code> 文件夹（Hexo 生成的静态文件都在这里）。</li>
+<li><code>publish_branch: main</code>：部署目标是 <code>main</code> 分支。</li>
+</ul>
+</li>
+</ol>
+</blockquote>
+<hr>
+<h2 id="第四步：在-GitHub-上配置权限"><a href="#第四步：在-GitHub-上配置权限" class="headerlink" title="第四步：在 GitHub 上配置权限"></a>第四步：在 GitHub 上配置权限</h2><p>工作流文件写好了，但还需要在 GitHub 上开一个”门禁”，让机器人有权限往仓库里推送代码。</p>
+<ol>
+<li>打开你的 GitHub 仓库页面（比如 <code>https://github.com/你的用户名/你的用户名.github.io</code>）</li>
+<li>点击上方的 <strong>Settings</strong>（设置）</li>
+<li>在左侧菜单找到 <strong>Actions → General</strong></li>
+<li>往下滚动，找到 <strong>Workflow permissions</strong>（工作流权限）</li>
+<li>选择 <strong>Read and write permissions</strong> ✅</li>
+<li>点 <strong>Save</strong> 保存</li>
+</ol>
+<blockquote>
+<p>📌 这一步的作用是：允许 GitHub Actions 机器人往你的仓库写入内容（也就是把生成的网页推送到 <code>main</code> 分支）。默认情况下机器人只有”读”的权限，没有”写”的权限。</p>
+</blockquote>
+<hr>
+<h2 id="第五步：确认-GitHub-Pages-的设置"><a href="#第五步：确认-GitHub-Pages-的设置" class="headerlink" title="第五步：确认 GitHub Pages 的设置"></a>第五步：确认 GitHub Pages 的设置</h2><p>确保 GitHub Pages 知道该从哪个分支读取网页内容。</p>
+<ol>
+<li>还是在仓库的 <strong>Settings</strong> 页面</li>
+<li>在左侧菜单找到 <strong>Pages</strong></li>
+<li>在 <strong>Build and deployment</strong> 下面：<ul>
+<li><strong>Source</strong> 选择 <code>Deploy from a branch</code></li>
+<li><strong>Branch</strong> 选择 <code>main</code>，目录选 <code>/ (root)</code></li>
+</ul>
+</li>
+<li>点 <strong>Save</strong> 保存</li>
+</ol>
+<blockquote>
+<p>这一步告诉 GitHub Pages：”请从 <code>main</code> 分支的根目录读取网页文件来展示。”</p>
+</blockquote>
+<hr>
+<h2 id="第六步：推送源码到-GitHub"><a href="#第六步：推送源码到-GitHub" class="headerlink" title="第六步：推送源码到 GitHub"></a>第六步：推送源码到 GitHub</h2><p>万事俱备，现在把你的博客源码推到 GitHub 上吧！</p>
+<p>打开终端（Git Bash），进入你的博客项目目录，然后依次执行以下命令：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 进入你的博客项目目录</span></span><br><span class="line"><span class="built_in">cd</span> D:\MyProjection\My_Blog</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 初始化 Git 仓库（如果你之前已经 git init 过了，会提示 Reinitialized，没关系）</span></span><br><span class="line">git init</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>git init</code> 的作用是在当前文件夹里创建一个 Git 仓库，让 Git 开始管理这个项目的所有文件变动。</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 关联远程仓库</span></span><br><span class="line">git remote add origin https://github.com/你的用户名/你的用户名.github.io.git</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>git remote add origin</code> 的意思是：给这个本地项目”绑定”一个远程 GitHub 仓库，<code>origin</code> 是远程仓库的别名（约定俗成就叫这个名字）。</p>
+<p>⚠️ 如果提示 <code>fatal: remote origin already exists.</code>，说明之前已经绑过了，可以跳过这一步，或者先执行 <code>git remote remove origin</code> 再重新绑定。</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 创建并切换到 source 分支</span></span><br><span class="line">git checkout -b <span class="built_in">source</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>git checkout -b source</code> 做了两件事：创建一个名为 <code>source</code> 的新分支，并切换到这个分支上。以后你的所有操作都在 <code>source</code> 分支上进行。</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 把所有文件加入暂存区</span></span><br><span class="line">git add .</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>git add .</code> 的意思是：把当前目录下所有改动过的文件都标记为”准备提交”（<code>.</code> 代表当前目录下的所有文件）。被 <code>.gitignore</code> 列出的文件会自动排除。</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 提交到本地仓库</span></span><br><span class="line">git commit -m <span class="string">&quot;Initial commit: Hexo blog source&quot;</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>git commit -m &quot;消息&quot;</code> 的意思是：把暂存区的文件正式保存到本地仓库，<code>-m</code> 后面引号里的内容是这次提交的说明，方便以后回看。</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 推送到 GitHub 的 source 分支</span></span><br><span class="line">git push -u origin <span class="built_in">source</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>git push</code> 就是把本地的代码上传到 GitHub。<code>-u origin source</code> 的意思是：推送到远程仓库 <code>origin</code> 的 <code>source</code> 分支，并且设置为默认推送目标（以后直接 <code>git push</code> 就行了，不用再写后面那一串）。</p>
+</blockquote>
+<p>推送完成后，去你的 GitHub 仓库页面看一下：</p>
+<ol>
+<li>切换到 <strong>Actions</strong> 标签页，你应该能看到一个正在运行的工作流（小黄圈转啊转的🟡）</li>
+<li>等它变成绿色的勾 ✅，就说明部署成功了！</li>
+<li>打开你的博客网址 <code>https://你的用户名.github.io</code>，确认一下页面是否正常</li>
+</ol>
+<blockquote>
+<p>🟡 第一次运行可能需要 1-2 分钟，耐心等待就好。</p>
+</blockquote>
+<hr>
+<h2 id="以后发布新文章的流程"><a href="#以后发布新文章的流程" class="headerlink" title="以后发布新文章的流程"></a>以后发布新文章的流程</h2><p>配置完成后，以后每次写新文章，只需要三步：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1️⃣ 创建新文章</span></span><br><span class="line">npx hexo new <span class="string">&quot;你的文章标题&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 2️⃣ 用编辑器打开 source/_posts/你的文章标题.md，愉快地写作......</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 3️⃣ 写完后推送到 GitHub，自动部署！</span></span><br><span class="line">git add .</span><br><span class="line">git commit -m <span class="string">&quot;新文章：你的文章标题&quot;</span></span><br><span class="line">git push</span><br></pre></td></tr></table></figure>
+
+<p>就这么简单！推送后等 1-2 分钟，刷新博客页面就能看到新文章了 🎉</p>
+<p>再也不用手动 <code>hexo clean &amp;&amp; hexo generate &amp;&amp; hexo deploy</code> 了～</p>
+<hr>
+<h2 id="💡-常见问题"><a href="#💡-常见问题" class="headerlink" title="💡 常见问题"></a>💡 常见问题</h2><h3 id="Q1：source-和-main-两个分支需要合并吗？"><a href="#Q1：source-和-main-两个分支需要合并吗？" class="headerlink" title="Q1：source 和 main 两个分支需要合并吗？"></a>Q1：source 和 main 两个分支需要合并吗？</h3><p><strong>不需要，也不能合并。</strong></p>
+<p>这两个分支虽然在同一个仓库里，但它们的内容<strong>完全不同</strong>：</p>
+<ul>
+<li><code>source</code> 存的是源码（Markdown 文件、配置文件等），是”原材料”</li>
+<li><code>main</code> 存的是生成的网页（HTML&#x2F;CSS&#x2F;JS），是”成品”</li>
+</ul>
+<p>如果你把 <code>source</code> 合并到 <code>main</code>，GitHub Pages 就找不到正确的网页文件了，博客会直接挂掉。</p>
+<p>它们是<strong>平行存在、互不干扰</strong>的关系。你只需要关心 <code>source</code> 分支，<code>main</code> 分支交给机器人自动管理就好。</p>
+<h3 id="Q2：为什么用同一个仓库的两个分支，而不是两个仓库？"><a href="#Q2：为什么用同一个仓库的两个分支，而不是两个仓库？" class="headerlink" title="Q2：为什么用同一个仓库的两个分支，而不是两个仓库？"></a>Q2：为什么用同一个仓库的两个分支，而不是两个仓库？</h3><p>用同一个仓库更方便：</p>
+<ul>
+<li><strong>管理简单</strong>：一个仓库搞定所有事情</li>
+<li><strong>权限方便</strong>：GitHub Actions 天然有权限操作同一个仓库的所有分支，不需要额外配置 Token</li>
+<li><strong>社区惯例</strong>：这是 GitHub Pages 博客最常见的做法</li>
+</ul>
+<h3 id="Q3：部署失败了怎么办？"><a href="#Q3：部署失败了怎么办？" class="headerlink" title="Q3：部署失败了怎么办？"></a>Q3：部署失败了怎么办？</h3><ol>
+<li>去 GitHub 仓库的 <strong>Actions</strong> 页面查看失败的工作流</li>
+<li>点进去看具体的错误日志</li>
+<li>常见原因：<ul>
+<li><strong>权限问题</strong>：检查第四步的 Workflow permissions 是否设置成了 Read and write</li>
+<li><strong>依赖安装失败</strong>：检查 <code>package.json</code> 是否正确</li>
+<li><strong>分支名不对</strong>：确认工作流文件里的分支名和你实际推送的分支名一致</li>
+</ul>
+</li>
+</ol>
+<h3 id="Q4：我能不能在本地预览文章再推送？"><a href="#Q4：我能不能在本地预览文章再推送？" class="headerlink" title="Q4：我能不能在本地预览文章再推送？"></a>Q4：我能不能在本地预览文章再推送？</h3><p>当然可以！推送之前先在本地看看效果：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">npx hexo server</span><br></pre></td></tr></table></figure>
+
+<p>然后打开浏览器访问 <code>http://localhost:4000</code> 就能预览了。确认没问题后再推送。</p>
+<hr>
+<h2 id="🎉-总结"><a href="#🎉-总结" class="headerlink" title="🎉 总结"></a>🎉 总结</h2><p>恭喜你！现在你的博客已经实现了全自动部署。整个流程就是：</p>
+<blockquote>
+<p><strong>写文章 → git push → 自动部署 → 博客更新</strong></p>
+</blockquote>
+<p>你需要做的，就只是<strong>专注于写作</strong>本身了。</p>
+<p>希望这篇教程对你有帮助，如果遇到问题欢迎留言交流～</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Hexo/" rel="tag"># Hexo</a>
+              <a href="/tags/%E5%8D%9A%E5%AE%A2%E6%90%AD%E5%BB%BA/" rel="tag"># 博客搭建</a>
+              <a href="/tags/GitHub-Actions/" rel="tag"># GitHub Actions</a>
+              <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E9%83%A8%E7%BD%B2/" rel="tag"># 自动化部署</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2026/02/08/%E5%B0%8F%E7%99%BD%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2%E6%95%99%E7%A8%8B/" rel="prev" title="🎉 小白搭建个人博客教程（一）">
+                  <i class="fa fa-angle-left"></i> 🎉 小白搭建个人博客教程（一）
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">Andrew Yang</span>
+  </div>
+<div class="wordcount">
+  <span class="post-meta-item">
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-line"></i>
+    </span>
+    <span title="站点总字数">8k</span>
+  </span>
+  <span class="post-meta-item">
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">29 分钟</span>
+  </span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+</body>
+</html>
