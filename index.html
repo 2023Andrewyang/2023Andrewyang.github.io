@@ -178,7 +178,7 @@
   
 
   <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
-    <link itemprop="mainEntityOfPage" href="https://2023andrewyang.github.io/2026/02/10/%E5%B0%8F%E7%99%BD%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2%E6%95%99%E7%A8%8B%EF%BC%88%E4%B8%89%EF%BC%89%E2%80%94%E2%80%94-%E8%AF%84%E8%AE%BA%E5%8A%9F%E8%83%BD%E9%85%8D%E7%BD%AE/">
+    <link itemprop="mainEntityOfPage" href="https://2023andrewyang.github.io/2026/02/10/%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2%E6%95%99%E7%A8%8B%E4%B8%89-%E8%AF%84%E8%AE%BA%E5%8A%9F%E8%83%BD%E9%85%8D%E7%BD%AE/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.png">
@@ -196,7 +196,7 @@
     </span>
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
-          <a href="/2026/02/10/%E5%B0%8F%E7%99%BD%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2%E6%95%99%E7%A8%8B%EF%BC%88%E4%B8%89%EF%BC%89%E2%80%94%E2%80%94-%E8%AF%84%E8%AE%BA%E5%8A%9F%E8%83%BD%E9%85%8D%E7%BD%AE/" class="post-title-link" itemprop="url">小白搭建个人博客教程（三）—— 评论功能配置</a>
+          <a href="/2026/02/10/%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2%E6%95%99%E7%A8%8B%E4%B8%89-%E8%AF%84%E8%AE%BA%E5%8A%9F%E8%83%BD%E9%85%8D%E7%BD%AE/" class="post-title-link" itemprop="url">小白搭建个人博客教程（三）—— 评论功能配置</a>
         </h2>
 
         <div class="post-meta-container">
@@ -214,7 +214,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-02-12 10:21:24" itemprop="dateModified" datetime="2026-02-12T10:21:24+08:00">2026-02-12</time>
+      <time title="修改时间：2026-02-12 10:37:39" itemprop="dateModified" datetime="2026-02-12T10:37:39+08:00">2026-02-12</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -233,7 +233,7 @@
         <i class="far fa-file-word"></i>
       </span>
       <span class="post-meta-item-text">本文字数：</span>
-      <span>495</span>
+      <span>551</span>
     </span>
     <span class="post-meta-item" title="阅读时长">
       <span class="post-meta-item-icon">
@@ -251,21 +251,15 @@
     
     
     <div class="post-body" itemprop="articleBody">
-          <p>因为搭建博客的初衷不仅仅是为了记录，也希望能跟不同的朋友分享和交流，所以一个能互动的评论功能必不可少。通过查阅相关资料，我最终选择了Giscus作为我的评论系统。</p>
-<h2 id="Gisucs的主要优势"><a href="#Gisucs的主要优势" class="headerlink" title="Gisucs的主要优势"></a>Gisucs的主要优势</h2><pre><code>- **完全开源免费**： 这对于我这种小作坊选手简直是最重要的一点！
-- **部署简单**：网上很多教程，而且操作步骤较为简单，能很快实现功能
-- **无需维护**：依托于Github平台，服务稳定且安全，也不需要专门维护一个数据库
-</code></pre>
-<h2 id="部署"><a href="#部署" class="headerlink" title="部署"></a>部署</h2><p>首先以下操作步骤主要参考了<a target="_blank" rel="noopener" href="https://segmentfault.com/a/1190000044803417">这篇文章</a>, 步骤非常详细，也有明确的图片说明，非常感谢作者的分享，大家跟着一步步操作即可</p>
-<h2 id="部署最后一步：配置"><a href="#部署最后一步：配置" class="headerlink" title="部署最后一步：配置"></a>部署最后一步：配置</h2><p>在文章最后，会进入<a target="_blank" rel="noopener" href="https://giscus.app/zh-CN">这个网址</a>对giscus进行配置，最终生成一段js代码，文中提到需要将这段代码放入博客界面。因为我目前还不是很熟悉前端代码，不知道需要放到哪个文件的哪个部分，担心出问题，于是我询问AI得到了一个更直观的方式：</p>
-<p>找到主题的_config.next.yml文件(我的是NEXT主题，如果是其他主题，中间则为主题名，例如butterfly主题，文件则为_config.butterfly.yml)，Ctrl+F搜索：postBodyEnd，删去注释(删除“#”字符)，如下图所示：</p>
-<img src="/2026/02/10/%E5%B0%8F%E7%99%BD%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2%E6%95%99%E7%A8%8B%EF%BC%88%E4%B8%89%EF%BC%89%E2%80%94%E2%80%94-%E8%AF%84%E8%AE%BA%E5%8A%9F%E8%83%BD%E9%85%8D%E7%BD%AE/%E5%88%A0%E9%99%A4%E6%B3%A8%E9%87%8A.jpeg" class="" title="删除postBodyEnd注释">
-
-<p>根据postBodyEnd中的内容找到_data文件夹，并创建post-body-end.njk文件，将得到的js代码直接复制粘贴进去即可<br><img src="/njk%E6%96%87%E4%BB%B6%E5%86%85%E5%AE%B9.jpeg" alt="njk文件配置"></p>
-<p>完成以上配置之后，即可通过以下命令推送至GitHub仓库</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">git add .</span><br><span class="line">git commit -m <span class="string">&quot;your commit&quot;</span></span><br><span class="line">git push</span><br></pre></td></tr></table></figure>
-<p>推送到新仓库之后，在博客文章的底部即可看到评论区，需要Github账号登陆才能使用</p>
-
+          <p>因为搭建博客的初衷不仅仅是为了记录，也希望能跟不同的朋友分享和交流，所以一个能互动的评论功能必不可少。通过查阅相关资料，我最终选择了 Giscus 作为我的评论系统。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2026/02/10/%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2%E6%95%99%E7%A8%8B%E4%B8%89-%E8%AF%84%E8%AE%BA%E5%8A%9F%E8%83%BD%E9%85%8D%E7%BD%AE/#more" rel="contents">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
       
     </div>
 
@@ -327,7 +321,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-02-12 10:21:24" itemprop="dateModified" datetime="2026-02-12T10:21:24+08:00">2026-02-12</time>
+      <time title="修改时间：2026-02-12 10:37:39" itemprop="dateModified" datetime="2026-02-12T10:37:39+08:00">2026-02-12</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -438,7 +432,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-02-12 10:21:24" itemprop="dateModified" datetime="2026-02-12T10:21:24+08:00">2026-02-12</time>
+      <time title="修改时间：2026-02-12 10:37:39" itemprop="dateModified" datetime="2026-02-12T10:37:39+08:00">2026-02-12</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
