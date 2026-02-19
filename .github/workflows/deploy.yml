@@ -19,7 +19,8 @@ jobs:
       # 2. 恢复文件修改时间（使用 Git 提交历史）
       - name: Restore file modification time
         run: |
-          git ls-files | while read file; do
+          git config core.quotePath false
+          git ls-files | while IFS= read -r file; do
             time=$(git log -1 --format='%ai' -- "$file")
             if [ -n "$time" ]; then
               touch -d "$time" "$file"
