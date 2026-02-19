@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" integrity="sha256-VHqXKFhhMxcpubYf9xiWdCiojEbY9NexQ4jh8AxbvcM=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"2023andrewyang.github.io","root":"/","images":"/images","scheme":"Gemini","darkmode":true,"version":"8.27.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"default","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":true,"style":"mac"},"fold":{"enable":false,"height":500},"language":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="最近复习 SQL 的时候，发现条件查询（WHERE）和分组查询（GROUP BY + HAVING）这两块内容很容易混淆，尤其是 WHERE 和 HAVING 的区别。再加上 CASE WHEN 在实际开发中几乎无处不在，所以把这些知识点整理到一起，方便对比学习。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SQL基础-条件查询与分组查询">
+<meta property="og:url" content="https://2023andrewyang.github.io/2026/02/19/SQL%E5%9F%BA%E7%A1%80-%E6%9D%A1%E4%BB%B6%E6%9F%A5%E8%AF%A2%E4%B8%8E%E5%88%86%E7%BB%84%E6%9F%A5%E8%AF%A2/index.html">
+<meta property="og:site_name" content="Andrew&#39;s Blog">
+<meta property="og:description" content="最近复习 SQL 的时候，发现条件查询（WHERE）和分组查询（GROUP BY + HAVING）这两块内容很容易混淆，尤其是 WHERE 和 HAVING 的区别。再加上 CASE WHEN 在实际开发中几乎无处不在，所以把这些知识点整理到一起，方便对比学习。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-02-19T16:30:00.000Z">
+<meta property="article:modified_time" content="2026-02-19T16:18:17.228Z">
+<meta property="article:author" content="Andrew Yang">
+<meta property="article:tag" content="SQL">
+<meta property="article:tag" content="数据库">
+<meta property="article:tag" content="学习笔记">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://2023andrewyang.github.io/2026/02/19/SQL%E5%9F%BA%E7%A1%80-%E6%9D%A1%E4%BB%B6%E6%9F%A5%E8%AF%A2%E4%B8%8E%E5%88%86%E7%BB%84%E6%9F%A5%E8%AF%A2/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://2023andrewyang.github.io/2026/02/19/SQL%E5%9F%BA%E7%A1%80-%E6%9D%A1%E4%BB%B6%E6%9F%A5%E8%AF%A2%E4%B8%8E%E5%88%86%E7%BB%84%E6%9F%A5%E8%AF%A2/","path":"2026/02/19/SQL基础-条件查询与分组查询/","title":"SQL基础-条件查询与分组查询"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>SQL基础-条件查询与分组查询 | Andrew's Blog</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/motion.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Andrew's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E6%9D%A1%E4%BB%B6%E6%9F%A5%E8%AF%A2%EF%BC%88WHERE%EF%BC%89"><span class="nav-number">1.</span> <span class="nav-text">一、条件查询（WHERE）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E6%AF%94%E8%BE%83%E8%BF%90%E7%AE%97%E7%AC%A6"><span class="nav-number">1.1.</span> <span class="nav-text">1. 比较运算符</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-BETWEEN-AND"><span class="nav-number">1.2.</span> <span class="nav-text">2. BETWEEN...AND</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-IN"><span class="nav-number">1.3.</span> <span class="nav-text">3. IN</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-LIKE%EF%BC%88%E6%A8%A1%E7%B3%8A%E5%8C%B9%E9%85%8D%EF%BC%89"><span class="nav-number">1.4.</span> <span class="nav-text">4. LIKE（模糊匹配）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-IS-NULL-IS-NOT-NULL"><span class="nav-number">1.5.</span> <span class="nav-text">5. IS NULL &#x2F; IS NOT NULL</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-%E9%80%BB%E8%BE%91%E8%BF%90%E7%AE%97%E7%AC%A6%E4%B8%8E%E4%BC%98%E5%85%88%E7%BA%A7"><span class="nav-number">1.6.</span> <span class="nav-text">6. 逻辑运算符与优先级</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E5%88%86%E7%BB%84%E6%9F%A5%E8%AF%A2%EF%BC%88GROUP-BY-HAVING%EF%BC%89"><span class="nav-number">2.</span> <span class="nav-text">二、分组查询（GROUP BY + HAVING）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E8%81%9A%E5%90%88%E5%87%BD%E6%95%B0"><span class="nav-number">2.1.</span> <span class="nav-text">1. 聚合函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-GROUP-BY-%E5%9F%BA%E7%A1%80%E8%AF%AD%E6%B3%95"><span class="nav-number">2.2.</span> <span class="nav-text">2. GROUP BY 基础语法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-HAVING-%E8%BF%87%E6%BB%A4%E5%88%86%E7%BB%84"><span class="nav-number">2.3.</span> <span class="nav-text">3. HAVING 过滤分组</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-%E2%AD%90-WHERE-vs-HAVING-%E5%AF%B9%E6%AF%94%EF%BC%88%E9%87%8D%E7%82%B9%EF%BC%89"><span class="nav-number">2.4.</span> <span class="nav-text">4. ⭐ WHERE vs HAVING 对比（重点）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81CASE-WHEN-%E6%9D%A1%E4%BB%B6%E8%A1%A8%E8%BE%BE%E5%BC%8F"><span class="nav-number">3.</span> <span class="nav-text">三、CASE WHEN 条件表达式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E4%B8%A4%E7%A7%8D%E8%AF%AD%E6%B3%95%E5%BD%A2%E5%BC%8F"><span class="nav-number">3.1.</span> <span class="nav-text">1. 两种语法形式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E5%9C%A8-SELECT-%E4%B8%AD%E4%BD%BF%E7%94%A8%EF%BC%88%E6%95%B0%E6%8D%AE%E5%88%86%E7%B1%BB-%E8%BD%AC%E6%8D%A2%EF%BC%89"><span class="nav-number">3.2.</span> <span class="nav-text">2. 在 SELECT 中使用（数据分类&#x2F;转换）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E5%9C%A8-WHERE-%E4%B8%AD%E4%BD%BF%E7%94%A8%EF%BC%88%E6%9D%A1%E4%BB%B6%E7%AD%9B%E9%80%89%EF%BC%89"><span class="nav-number">3.3.</span> <span class="nav-text">3. 在 WHERE 中使用（条件筛选）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-%E5%9C%A8-ORDER-BY-%E4%B8%AD%E4%BD%BF%E7%94%A8%EF%BC%88%E8%87%AA%E5%AE%9A%E4%B9%89%E6%8E%92%E5%BA%8F%EF%BC%89"><span class="nav-number">3.4.</span> <span class="nav-text">4. 在 ORDER BY 中使用（自定义排序）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-%E5%9C%A8-GROUP-BY-%E4%B8%AD%E4%BD%BF%E7%94%A8%EF%BC%88%E6%8C%89%E6%9D%A1%E4%BB%B6%E5%88%86%E7%BB%84%EF%BC%89"><span class="nav-number">3.5.</span> <span class="nav-text">5. 在 GROUP BY 中使用（按条件分组）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-%E2%AD%90-%E6%90%AD%E9%85%8D%E8%81%9A%E5%90%88%E5%87%BD%E6%95%B0%EF%BC%88%E6%9D%A1%E4%BB%B6%E7%BB%9F%E8%AE%A1%EF%BC%89"><span class="nav-number">3.6.</span> <span class="nav-text">6. ⭐ 搭配聚合函数（条件统计）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-%E2%AD%90-%E8%A1%8C%E8%BD%AC%E5%88%97%EF%BC%88%E7%BB%8F%E5%85%B8%E5%BA%94%E7%94%A8%EF%BC%89"><span class="nav-number">3.7.</span> <span class="nav-text">7. ⭐ 行转列（经典应用）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-CASE-WHEN-vs-IF"><span class="nav-number">3.8.</span> <span class="nav-text">8. CASE WHEN vs IF()</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E7%BB%BC%E5%90%88%E5%AF%B9%E6%AF%94%E9%80%9F%E6%9F%A5%E8%A1%A8"><span class="nav-number">4.</span> <span class="nav-text">四、综合对比速查表</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81LeetCode-%E7%9B%B8%E5%85%B3%E7%BB%83%E4%B9%A0"><span class="nav-number">5.</span> <span class="nav-text">五、LeetCode 相关练习</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Andrew Yang"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Andrew Yang</p>
+  <div class="site-description" itemprop="description">记录技术、生活与学习</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">5</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">9</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://2023andrewyang.github.io/2026/02/19/SQL%E5%9F%BA%E7%A1%80-%E6%9D%A1%E4%BB%B6%E6%9F%A5%E8%AF%A2%E4%B8%8E%E5%88%86%E7%BB%84%E6%9F%A5%E8%AF%A2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Andrew Yang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Andrew's Blog">
+      <meta itemprop="description" content="记录技术、生活与学习">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="SQL基础-条件查询与分组查询 | Andrew's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          SQL基础-条件查询与分组查询
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-02-20 00:30:00 / 修改时间：00:18:17" itemprop="dateCreated datePublished" datetime="2026-02-20T00:30:00+08:00">2026-02-20</time>
+    </span>
+
+  
+    <span class="post-meta-break"></span>
+    <span class="post-meta-item" title="本文字数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-file-word"></i>
+      </span>
+      <span class="post-meta-item-text">本文字数：</span>
+      <span>3.6k</span>
+    </span>
+    <span class="post-meta-item" title="阅读时长">
+      <span class="post-meta-item-icon">
+        <i class="far fa-clock"></i>
+      </span>
+      <span class="post-meta-item-text">阅读时长 &asymp;</span>
+      <span>13 分钟</span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>最近复习 SQL 的时候，发现条件查询（WHERE）和分组查询（GROUP BY + HAVING）这两块内容很容易混淆，尤其是 <code>WHERE</code> 和 <code>HAVING</code> 的区别。再加上 <code>CASE WHEN</code> 在实际开发中几乎无处不在，所以把这些知识点整理到一起，方便对比学习。</p>
+<hr>
+<span id="more"></span>
+
+<p>本文使用以下示例表来演示所有查询：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 员工表</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> employee (</span><br><span class="line">    id <span class="type">INT</span> <span class="keyword">PRIMARY KEY</span>,</span><br><span class="line">    name <span class="type">VARCHAR</span>(<span class="number">50</span>),</span><br><span class="line">    department <span class="type">VARCHAR</span>(<span class="number">50</span>),</span><br><span class="line">    salary <span class="type">DECIMAL</span>(<span class="number">10</span>, <span class="number">2</span>),</span><br><span class="line">    age <span class="type">INT</span>,</span><br><span class="line">    hire_date <span class="type">DATE</span></span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">INSERT INTO</span> employee <span class="keyword">VALUES</span></span><br><span class="line">(<span class="number">1</span>,  <span class="string">&#x27;张三&#x27;</span>, <span class="string">&#x27;技术部&#x27;</span>, <span class="number">15000</span>, <span class="number">28</span>, <span class="string">&#x27;2022-03-15&#x27;</span>),</span><br><span class="line">(<span class="number">2</span>,  <span class="string">&#x27;李四&#x27;</span>, <span class="string">&#x27;技术部&#x27;</span>, <span class="number">18000</span>, <span class="number">32</span>, <span class="string">&#x27;2020-07-01&#x27;</span>),</span><br><span class="line">(<span class="number">3</span>,  <span class="string">&#x27;王五&#x27;</span>, <span class="string">&#x27;销售部&#x27;</span>, <span class="number">12000</span>, <span class="number">25</span>, <span class="string">&#x27;2023-01-10&#x27;</span>),</span><br><span class="line">(<span class="number">4</span>,  <span class="string">&#x27;赵六&#x27;</span>, <span class="string">&#x27;销售部&#x27;</span>, <span class="number">9000</span>,  <span class="number">23</span>, <span class="string">&#x27;2023-06-20&#x27;</span>),</span><br><span class="line">(<span class="number">5</span>,  <span class="string">&#x27;孙七&#x27;</span>, <span class="string">&#x27;人事部&#x27;</span>, <span class="number">11000</span>, <span class="number">30</span>, <span class="string">&#x27;2021-09-05&#x27;</span>),</span><br><span class="line">(<span class="number">6</span>,  <span class="string">&#x27;周八&#x27;</span>, <span class="string">&#x27;技术部&#x27;</span>, <span class="number">22000</span>, <span class="number">35</span>, <span class="string">&#x27;2019-04-12&#x27;</span>),</span><br><span class="line">(<span class="number">7</span>,  <span class="string">&#x27;吴九&#x27;</span>, <span class="string">&#x27;销售部&#x27;</span>, <span class="number">15000</span>, <span class="number">29</span>, <span class="string">&#x27;2022-11-08&#x27;</span>),</span><br><span class="line">(<span class="number">8</span>,  <span class="string">&#x27;郑十&#x27;</span>, <span class="string">&#x27;人事部&#x27;</span>, <span class="number">13000</span>, <span class="number">27</span>, <span class="string">&#x27;2022-05-18&#x27;</span>),</span><br><span class="line">(<span class="number">9</span>,  <span class="string">&#x27;刘一&#x27;</span>, <span class="string">&#x27;技术部&#x27;</span>, <span class="number">9500</span>,  <span class="number">22</span>, <span class="string">&#x27;2024-01-15&#x27;</span>),</span><br><span class="line">(<span class="number">10</span>, <span class="string">&#x27;陈二&#x27;</span>, <span class="string">&#x27;销售部&#x27;</span>, <span class="keyword">NULL</span>,  <span class="number">26</span>, <span class="string">&#x27;2023-08-01&#x27;</span>);</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="一、条件查询（WHERE）"><a href="#一、条件查询（WHERE）" class="headerlink" title="一、条件查询（WHERE）"></a>一、条件查询（WHERE）</h2><p><code>WHERE</code> 子句用于在查询时<strong>过滤行</strong>，只返回满足条件的记录。它在数据分组（<code>GROUP BY</code>）<strong>之前</strong>执行。</p>
+<p><strong>基本语法</strong>：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> 列名 <span class="keyword">FROM</span> 表名 <span class="keyword">WHERE</span> 条件;</span><br></pre></td></tr></table></figure>
+
+<h3 id="1-比较运算符"><a href="#1-比较运算符" class="headerlink" title="1. 比较运算符"></a>1. 比较运算符</h3><table>
+<thead>
+<tr>
+<th>运算符</th>
+<th>说明</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>=</code></td>
+<td>等于</td>
+<td><code>WHERE age = 28</code></td>
+</tr>
+<tr>
+<td><code>!=</code> 或 <code>&lt;&gt;</code></td>
+<td>不等于</td>
+<td><code>WHERE department != &#39;技术部&#39;</code></td>
+</tr>
+<tr>
+<td><code>&gt;</code></td>
+<td>大于</td>
+<td><code>WHERE salary &gt; 15000</code></td>
+</tr>
+<tr>
+<td><code>&lt;</code></td>
+<td>小于</td>
+<td><code>WHERE age &lt; 30</code></td>
+</tr>
+<tr>
+<td><code>&gt;=</code></td>
+<td>大于等于</td>
+<td><code>WHERE salary &gt;= 12000</code></td>
+</tr>
+<tr>
+<td><code>&lt;=</code></td>
+<td>小于等于</td>
+<td><code>WHERE age &lt;= 25</code></td>
+</tr>
+</tbody></table>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询工资大于 15000 的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> salary <span class="operator">&gt;</span> <span class="number">15000</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-BETWEEN-AND"><a href="#2-BETWEEN-AND" class="headerlink" title="2. BETWEEN...AND"></a>2. <code>BETWEEN...AND</code></h3><p>用于筛选某个<strong>范围</strong>内的值（包含两端边界值）。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询工资在 10000 到 18000 之间的员工（包含 10000 和 18000）</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> salary <span class="keyword">BETWEEN</span> <span class="number">10000</span> <span class="keyword">AND</span> <span class="number">18000</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 等价于</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> salary <span class="operator">&gt;=</span> <span class="number">10000</span> <span class="keyword">AND</span> salary <span class="operator">&lt;=</span> <span class="number">18000</span>;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>⚠️ <strong>注意</strong>：<code>BETWEEN...AND</code> 是<strong>闭区间</strong>，即包含边界值。并且小值必须写在前面，<code>BETWEEN 18000 AND 10000</code> 查不到任何结果。</p>
+</blockquote>
+<p>也可以用于日期范围：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询 2022 年入职的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name, hire_date <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> hire_date <span class="keyword">BETWEEN</span> <span class="string">&#x27;2022-01-01&#x27;</span> <span class="keyword">AND</span> <span class="string">&#x27;2022-12-31&#x27;</span>;</span><br></pre></td></tr></table></figure>
+
+<p><code>NOT BETWEEN</code> 可以排除范围：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询工资不在 10000~15000 范围内的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> salary <span class="keyword">NOT</span> <span class="keyword">BETWEEN</span> <span class="number">10000</span> <span class="keyword">AND</span> <span class="number">15000</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-IN"><a href="#3-IN" class="headerlink" title="3. IN"></a>3. <code>IN</code></h3><p>用于判断值是否在一个<strong>指定的集合</strong>中，替代多个 <code>OR</code> 条件。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询技术部和销售部的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name, department <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> department <span class="keyword">IN</span> (<span class="string">&#x27;技术部&#x27;</span>, <span class="string">&#x27;销售部&#x27;</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 等价于</span></span><br><span class="line"><span class="keyword">SELECT</span> name, department <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> department <span class="operator">=</span> <span class="string">&#x27;技术部&#x27;</span> <span class="keyword">OR</span> department <span class="operator">=</span> <span class="string">&#x27;销售部&#x27;</span>;</span><br></pre></td></tr></table></figure>
+
+<p><code>NOT IN</code> 可以排除指定值：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询不是技术部和销售部的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name, department <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> department <span class="keyword">NOT</span> <span class="keyword">IN</span> (<span class="string">&#x27;技术部&#x27;</span>, <span class="string">&#x27;销售部&#x27;</span>);</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>⚠️ <strong>注意</strong>：<code>IN</code> 列表中如果包含 <code>NULL</code>，<code>NOT IN</code> 的结果可能不符合预期。例如 <code>WHERE salary NOT IN (15000, NULL)</code> 会返回<strong>空结果</strong>，因为任何值与 <code>NULL</code> 的比较结果都是 <code>UNKNOWN</code>。这是一个非常容易踩的坑。</p>
+</blockquote>
+<p><code>IN</code> 还可以配合子查询使用：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询工资高于平均值的部门有哪些员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name, department <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> department <span class="keyword">IN</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> department <span class="keyword">FROM</span> employee</span><br><span class="line">    <span class="keyword">GROUP</span> <span class="keyword">BY</span> department</span><br><span class="line">    <span class="keyword">HAVING</span> <span class="built_in">AVG</span>(salary) <span class="operator">&gt;</span> <span class="number">13000</span></span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-LIKE（模糊匹配）"><a href="#4-LIKE（模糊匹配）" class="headerlink" title="4. LIKE（模糊匹配）"></a>4. <code>LIKE</code>（模糊匹配）</h3><p>用于字符串的<strong>模式匹配</strong>，支持两个通配符：</p>
+<table>
+<thead>
+<tr>
+<th>通配符</th>
+<th>说明</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>%</code></td>
+<td>匹配<strong>任意数量</strong>的字符（包括 0 个）</td>
+<td><code>&#39;张%&#39;</code> 匹配以「张」开头的任意字符串</td>
+</tr>
+<tr>
+<td><code>_</code></td>
+<td>匹配<strong>恰好 1 个</strong>字符</td>
+<td><code>&#39;张_&#39;</code> 匹配「张」+ 任意一个字符</td>
+</tr>
+</tbody></table>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询姓「张」的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> name <span class="keyword">LIKE</span> <span class="string">&#x27;张%&#x27;</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 查询名字恰好两个字且姓「张」的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> name <span class="keyword">LIKE</span> <span class="string">&#x27;张_&#x27;</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 查询名字中包含「三」的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> name <span class="keyword">LIKE</span> <span class="string">&#x27;%三%&#x27;</span>;</span><br></pre></td></tr></table></figure>
+
+<p><code>NOT LIKE</code> 可以排除匹配：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询名字不以「张」开头的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> name <span class="keyword">NOT</span> <span class="keyword">LIKE</span> <span class="string">&#x27;张%&#x27;</span>;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <strong>补充</strong>：<code>LIKE</code> 默认不区分大小写（取决于表的字符集排序规则 <code>COLLATION</code>）。如果需要区分大小写，可以使用 <code>LIKE BINARY</code>：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> name <span class="keyword">LIKE</span> <span class="type">BINARY</span> <span class="string">&#x27;zhang%&#x27;</span>;</span><br></pre></td></tr></table></figure>
+</blockquote>
+<blockquote>
+<p>⚠️ <strong>性能提示</strong>：<code>LIKE &#39;%xxx&#39;</code>（前缀有 <code>%</code>）会导致<strong>全表扫描</strong>，无法利用索引。尽量使用 <code>LIKE &#39;xxx%&#39;</code> 的形式。</p>
+</blockquote>
+<h3 id="5-IS-NULL-IS-NOT-NULL"><a href="#5-IS-NULL-IS-NOT-NULL" class="headerlink" title="5. IS NULL &#x2F; IS NOT NULL"></a>5. <code>IS NULL</code> &#x2F; <code>IS NOT NULL</code></h3><p>用于判断值是否为 <code>NULL</code>。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询工资为空的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> salary <span class="keyword">IS</span> <span class="keyword">NULL</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 查询工资不为空的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> salary <span class="keyword">IS</span> <span class="keyword">NOT NULL</span>;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>⚠️ <strong>注意</strong>：不能用 <code>= NULL</code> 来判断空值！<code>WHERE salary = NULL</code> 永远返回空结果，因为 <code>NULL</code> 与任何值（包括 <code>NULL</code> 自身）的比较结果都是 <code>UNKNOWN</code>。必须使用 <code>IS NULL</code>。</p>
+</blockquote>
+<h3 id="6-逻辑运算符与优先级"><a href="#6-逻辑运算符与优先级" class="headerlink" title="6. 逻辑运算符与优先级"></a>6. 逻辑运算符与优先级</h3><table>
+<thead>
+<tr>
+<th>运算符</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>AND</code></td>
+<td>逻辑与，两个条件<strong>都满足</strong></td>
+</tr>
+<tr>
+<td><code>OR</code></td>
+<td>逻辑或，<strong>任一条件</strong>满足</td>
+</tr>
+<tr>
+<td><code>NOT</code></td>
+<td>逻辑非，取反</td>
+</tr>
+</tbody></table>
+<p><strong>优先级（从高到低）</strong>：<code>NOT</code> &gt; <code>AND</code> &gt; <code>OR</code></p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询技术部工资大于 15000 的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> department <span class="operator">=</span> <span class="string">&#x27;技术部&#x27;</span> <span class="keyword">AND</span> salary <span class="operator">&gt;</span> <span class="number">15000</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 查询技术部或者工资大于 15000 的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> department <span class="operator">=</span> <span class="string">&#x27;技术部&#x27;</span> <span class="keyword">OR</span> salary <span class="operator">&gt;</span> <span class="number">15000</span>;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>⚠️ <strong>易错点</strong>：由于 <code>AND</code> 优先级高于 <code>OR</code>，混用时一定要注意加<strong>括号</strong>！</p>
+</blockquote>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- ❌ 错误理解：想查询「技术部或销售部」中工资大于 15000 的人</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> department <span class="operator">=</span> <span class="string">&#x27;技术部&#x27;</span> <span class="keyword">OR</span> department <span class="operator">=</span> <span class="string">&#x27;销售部&#x27;</span> <span class="keyword">AND</span> salary <span class="operator">&gt;</span> <span class="number">15000</span>;</span><br><span class="line"><span class="comment">-- 实际执行：department = &#x27;技术部&#x27; OR (department = &#x27;销售部&#x27; AND salary &gt; 15000)</span></span><br><span class="line"><span class="comment">-- 技术部的所有人都会被选出来，不管工资多少！</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- ✅ 正确写法：用括号明确优先级</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> (department <span class="operator">=</span> <span class="string">&#x27;技术部&#x27;</span> <span class="keyword">OR</span> department <span class="operator">=</span> <span class="string">&#x27;销售部&#x27;</span>) <span class="keyword">AND</span> salary <span class="operator">&gt;</span> <span class="number">15000</span>;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <strong>建议</strong>：即使你清楚优先级，也推荐使用<strong>括号</strong>来让查询意图更加明确、可读性更好。</p>
+</blockquote>
+<hr>
+<h2 id="二、分组查询（GROUP-BY-HAVING）"><a href="#二、分组查询（GROUP-BY-HAVING）" class="headerlink" title="二、分组查询（GROUP BY + HAVING）"></a>二、分组查询（GROUP BY + HAVING）</h2><p><code>GROUP BY</code> 用于将数据按照某些列<strong>分组</strong>，通常搭配<strong>聚合函数</strong>一起使用，对每组数据进行统计计算。</p>
+<h3 id="1-聚合函数"><a href="#1-聚合函数" class="headerlink" title="1. 聚合函数"></a>1. 聚合函数</h3><p>在讲 <code>GROUP BY</code> 之前，先回顾一下常用的聚合函数：</p>
+<table>
+<thead>
+<tr>
+<th>函数</th>
+<th>说明</th>
+<th>注意事项</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>COUNT(*)</code></td>
+<td>统计行数（包含 NULL）</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>COUNT(列名)</code></td>
+<td>统计非 NULL 的行数</td>
+<td>会忽略 NULL 值</td>
+</tr>
+<tr>
+<td><code>SUM(列名)</code></td>
+<td>求和</td>
+<td>忽略 NULL</td>
+</tr>
+<tr>
+<td><code>AVG(列名)</code></td>
+<td>求平均值</td>
+<td>忽略 NULL（分母不含 NULL 行）</td>
+</tr>
+<tr>
+<td><code>MAX(列名)</code></td>
+<td>求最大值</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>MIN(列名)</code></td>
+<td>求最小值</td>
+<td>-</td>
+</tr>
+</tbody></table>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 统计总人数</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">AS</span> total <span class="keyword">FROM</span> employee;</span><br><span class="line"><span class="comment">-- 输出: 10</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 统计有工资记录的人数（排除 NULL）</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="built_in">COUNT</span>(salary) <span class="keyword">AS</span> has_salary <span class="keyword">FROM</span> employee;</span><br><span class="line"><span class="comment">-- 输出: 9（陈二的 salary 是 NULL，被排除）</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 求平均工资</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="built_in">AVG</span>(salary) <span class="keyword">AS</span> avg_salary <span class="keyword">FROM</span> employee;</span><br><span class="line"><span class="comment">-- 注意：AVG 会忽略 NULL，即除以 9 而不是 10</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>⚠️ <strong>易错点</strong>：<code>COUNT(*)</code> 和 <code>COUNT(列名)</code> 的区别——<code>COUNT(*)</code> 统计所有行，<code>COUNT(列名)</code> 只统计该列非 NULL 的行。<code>AVG</code> 也会忽略 NULL 行，这在有缺失数据时可能导致平均值偏高。</p>
+</blockquote>
+<h3 id="2-GROUP-BY-基础语法"><a href="#2-GROUP-BY-基础语法" class="headerlink" title="2. GROUP BY 基础语法"></a>2. <code>GROUP BY</code> 基础语法</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> 分组列, 聚合函数 <span class="keyword">FROM</span> 表名</span><br><span class="line"><span class="keyword">WHERE</span> 条件</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> 分组列;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 按部门统计人数和平均工资</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    department,</span><br><span class="line">    <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">AS</span> emp_count,</span><br><span class="line">    ROUND(<span class="built_in">AVG</span>(salary), <span class="number">2</span>) <span class="keyword">AS</span> avg_salary</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> department;</span><br></pre></td></tr></table></figure>
+
+<p>结果：</p>
+<table>
+<thead>
+<tr>
+<th>department</th>
+<th>emp_count</th>
+<th>avg_salary</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>技术部</td>
+<td>4</td>
+<td>16125.00</td>
+</tr>
+<tr>
+<td>销售部</td>
+<td>4</td>
+<td>12000.00</td>
+</tr>
+<tr>
+<td>人事部</td>
+<td>2</td>
+<td>12000.00</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>⚠️ <strong>重要规则</strong>：<code>SELECT</code> 中出现的列，要么是 <code>GROUP BY</code> 的分组列，要么包裹在聚合函数中。否则在严格模式（<code>ONLY_FULL_GROUP_BY</code>）下会报错。</p>
+</blockquote>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- ❌ 错误：name 既不是分组列，也没用聚合函数包裹</span></span><br><span class="line"><span class="keyword">SELECT</span> name, department, <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">FROM</span> employee <span class="keyword">GROUP</span> <span class="keyword">BY</span> department;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- ✅ 正确</span></span><br><span class="line"><span class="keyword">SELECT</span> department, <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">FROM</span> employee <span class="keyword">GROUP</span> <span class="keyword">BY</span> department;</span><br></pre></td></tr></table></figure>
+
+<p>多列分组：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 按部门和年龄段分组</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    department,</span><br><span class="line">    <span class="keyword">CASE</span></span><br><span class="line">        <span class="keyword">WHEN</span> age <span class="operator">&lt;</span> <span class="number">25</span> <span class="keyword">THEN</span> <span class="string">&#x27;25岁以下&#x27;</span></span><br><span class="line">        <span class="keyword">WHEN</span> age <span class="keyword">BETWEEN</span> <span class="number">25</span> <span class="keyword">AND</span> <span class="number">30</span> <span class="keyword">THEN</span> <span class="string">&#x27;25-30岁&#x27;</span></span><br><span class="line">        <span class="keyword">ELSE</span> <span class="string">&#x27;30岁以上&#x27;</span></span><br><span class="line">    <span class="keyword">END</span> <span class="keyword">AS</span> age_group,</span><br><span class="line">    <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">AS</span> emp_count</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> department, age_group;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-HAVING-过滤分组"><a href="#3-HAVING-过滤分组" class="headerlink" title="3. HAVING 过滤分组"></a>3. <code>HAVING</code> 过滤分组</h3><p><code>HAVING</code> 用于对<strong>分组后的结果</strong>进行过滤，它是配合 <code>GROUP BY</code> 使用的。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> 分组列, 聚合函数 <span class="keyword">FROM</span> 表名</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> 分组列</span><br><span class="line"><span class="keyword">HAVING</span> 聚合条件;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询平均工资大于 12000 的部门</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    department,</span><br><span class="line">    ROUND(<span class="built_in">AVG</span>(salary), <span class="number">2</span>) <span class="keyword">AS</span> avg_salary</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> department</span><br><span class="line"><span class="keyword">HAVING</span> <span class="built_in">AVG</span>(salary) <span class="operator">&gt;</span> <span class="number">12000</span>;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询员工人数大于等于 3 的部门</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    department,</span><br><span class="line">    <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">AS</span> emp_count</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> department</span><br><span class="line"><span class="keyword">HAVING</span> <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="operator">&gt;=</span> <span class="number">3</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-⭐-WHERE-vs-HAVING-对比（重点）"><a href="#4-⭐-WHERE-vs-HAVING-对比（重点）" class="headerlink" title="4. ⭐ WHERE vs HAVING 对比（重点）"></a>4. ⭐ <code>WHERE</code> vs <code>HAVING</code> 对比（重点）</h3><p>这是最容易混淆的地方，我们从多个维度进行对比：</p>
+<table>
+<thead>
+<tr>
+<th>对比维度</th>
+<th>WHERE</th>
+<th>HAVING</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>作用对象</strong></td>
+<td>过滤<strong>原始行</strong></td>
+<td>过滤<strong>分组后</strong>的结果</td>
+</tr>
+<tr>
+<td><strong>执行时机</strong></td>
+<td><code>GROUP BY</code> <strong>之前</strong></td>
+<td><code>GROUP BY</code> <strong>之后</strong></td>
+</tr>
+<tr>
+<td><strong>能否使用聚合函数</strong></td>
+<td>❌ 不能</td>
+<td>✅ 可以</td>
+</tr>
+<tr>
+<td><strong>能否使用列别名</strong></td>
+<td>❌ 不能（MySQL 中不行）</td>
+<td>✅ 可以（MySQL 支持）</td>
+</tr>
+<tr>
+<td><strong>是否依赖 GROUP BY</strong></td>
+<td>不依赖，可以单独使用</td>
+<td>通常需要配合 GROUP BY</td>
+</tr>
+</tbody></table>
+<p><strong>SQL 执行顺序</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 理解这个执行顺序是区分 <code>WHERE</code> 和 <code>HAVING</code> 的关键。<code>WHERE</code> 在分组前过滤，所以它无法使用聚合函数；<code>HAVING</code> 在分组后过滤，所以它可以用聚合函数作为条件。</p>
+</blockquote>
+<p><strong>对比示例</strong>：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 需求：查询「技术部和销售部」中，平均工资大于 12000 的部门</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- WHERE 负责分组前的过滤：筛选部门</span></span><br><span class="line"><span class="comment">-- HAVING 负责分组后的过滤：筛选平均工资</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    department,</span><br><span class="line">    ROUND(<span class="built_in">AVG</span>(salary), <span class="number">2</span>) <span class="keyword">AS</span> avg_salary</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> department <span class="keyword">IN</span> (<span class="string">&#x27;技术部&#x27;</span>, <span class="string">&#x27;销售部&#x27;</span>)   <span class="comment">-- 先过滤行</span></span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> department                         <span class="comment">-- 再分组</span></span><br><span class="line"><span class="keyword">HAVING</span> <span class="built_in">AVG</span>(salary) <span class="operator">&gt;</span> <span class="number">12000</span>;                 <span class="comment">-- 最后过滤分组</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- ❌ 错误：WHERE 中不能使用聚合函数</span></span><br><span class="line"><span class="keyword">SELECT</span> department, <span class="built_in">AVG</span>(salary)</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> <span class="built_in">AVG</span>(salary) <span class="operator">&gt;</span> <span class="number">12000</span>   <span class="comment">-- 报错！</span></span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> department;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- ✅ 正确：聚合条件必须放在 HAVING 中</span></span><br><span class="line"><span class="keyword">SELECT</span> department, <span class="built_in">AVG</span>(salary)</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> department</span><br><span class="line"><span class="keyword">HAVING</span> <span class="built_in">AVG</span>(salary) <span class="operator">&gt;</span> <span class="number">12000</span>;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <strong>简单记忆法</strong>：</p>
+<ul>
+<li>能用 <code>WHERE</code> 的条件就尽量用 <code>WHERE</code>（先过滤可以减少分组的数据量，<strong>性能更好</strong>）</li>
+<li>涉及聚合函数的条件，只能用 <code>HAVING</code></li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="三、CASE-WHEN-条件表达式"><a href="#三、CASE-WHEN-条件表达式" class="headerlink" title="三、CASE WHEN 条件表达式"></a>三、CASE WHEN 条件表达式</h2><p><code>CASE WHEN</code> 是 SQL 中的<strong>条件表达式</strong>，类似于编程语言中的 <code>if-else</code>，可以在查询中根据条件返回不同的值。它是 SQL 标准语法，所有数据库都支持。</p>
+<h3 id="1-两种语法形式"><a href="#1-两种语法形式" class="headerlink" title="1. 两种语法形式"></a>1. 两种语法形式</h3><p><strong>形式一：简单 CASE</strong>（等值匹配）</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CASE</span> 表达式</span><br><span class="line">    <span class="keyword">WHEN</span> 值<span class="number">1</span> <span class="keyword">THEN</span> 结果<span class="number">1</span></span><br><span class="line">    <span class="keyword">WHEN</span> 值<span class="number">2</span> <span class="keyword">THEN</span> 结果<span class="number">2</span></span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">ELSE</span> 默认结果</span><br><span class="line"><span class="keyword">END</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 将部门名转为英文</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name,</span><br><span class="line">    department,</span><br><span class="line">    <span class="keyword">CASE</span> department</span><br><span class="line">        <span class="keyword">WHEN</span> <span class="string">&#x27;技术部&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;Tech&#x27;</span></span><br><span class="line">        <span class="keyword">WHEN</span> <span class="string">&#x27;销售部&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;Sales&#x27;</span></span><br><span class="line">        <span class="keyword">WHEN</span> <span class="string">&#x27;人事部&#x27;</span> <span class="keyword">THEN</span> <span class="string">&#x27;HR&#x27;</span></span><br><span class="line">        <span class="keyword">ELSE</span> <span class="string">&#x27;Other&#x27;</span></span><br><span class="line">    <span class="keyword">END</span> <span class="keyword">AS</span> dept_en</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br></pre></td></tr></table></figure>
+
+<p><strong>形式二：搜索 CASE</strong>（条件判断，更灵活）</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CASE</span></span><br><span class="line">    <span class="keyword">WHEN</span> 条件<span class="number">1</span> <span class="keyword">THEN</span> 结果<span class="number">1</span></span><br><span class="line">    <span class="keyword">WHEN</span> 条件<span class="number">2</span> <span class="keyword">THEN</span> 结果<span class="number">2</span></span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">ELSE</span> 默认结果</span><br><span class="line"><span class="keyword">END</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 按工资划分等级</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name,</span><br><span class="line">    salary,</span><br><span class="line">    <span class="keyword">CASE</span></span><br><span class="line">        <span class="keyword">WHEN</span> salary <span class="operator">&gt;=</span> <span class="number">20000</span> <span class="keyword">THEN</span> <span class="string">&#x27;高薪&#x27;</span></span><br><span class="line">        <span class="keyword">WHEN</span> salary <span class="operator">&gt;=</span> <span class="number">15000</span> <span class="keyword">THEN</span> <span class="string">&#x27;中高薪&#x27;</span></span><br><span class="line">        <span class="keyword">WHEN</span> salary <span class="operator">&gt;=</span> <span class="number">10000</span> <span class="keyword">THEN</span> <span class="string">&#x27;中薪&#x27;</span></span><br><span class="line">        <span class="keyword">WHEN</span> salary <span class="keyword">IS</span> <span class="keyword">NULL</span> <span class="keyword">THEN</span> <span class="string">&#x27;未知&#x27;</span></span><br><span class="line">        <span class="keyword">ELSE</span> <span class="string">&#x27;低薪&#x27;</span></span><br><span class="line">    <span class="keyword">END</span> <span class="keyword">AS</span> salary_level</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>⚠️ <strong>注意事项</strong>：</p>
+<ul>
+<li><code>CASE WHEN</code> 是<strong>按顺序</strong>匹配的，匹配到第一个满足的条件就停止，后面的不再判断。所以条件的顺序很重要。</li>
+<li><code>ELSE</code> 是可选的，如果省略 <code>ELSE</code> 且没有条件匹配，返回 <code>NULL</code>。</li>
+<li>别忘了最后的 <strong><code>END</code></strong> 关键字！这是最常见的语法错误。</li>
+<li>搜索 CASE 比简单 CASE 更强大，建议优先使用搜索 CASE。</li>
+</ul>
+</blockquote>
+<h3 id="2-在-SELECT-中使用（数据分类-转换）"><a href="#2-在-SELECT-中使用（数据分类-转换）" class="headerlink" title="2. 在 SELECT 中使用（数据分类&#x2F;转换）"></a>2. 在 SELECT 中使用（数据分类&#x2F;转换）</h3><p>这是 <code>CASE WHEN</code> 最常见的用法，用来根据条件生成新的列。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 根据入职年份给员工打标签</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name,</span><br><span class="line">    hire_date,</span><br><span class="line">    <span class="keyword">CASE</span></span><br><span class="line">        <span class="keyword">WHEN</span> DATEDIFF(CURDATE(), hire_date) <span class="operator">&gt;=</span> <span class="number">1095</span> <span class="keyword">THEN</span> <span class="string">&#x27;老员工&#x27;</span></span><br><span class="line">        <span class="keyword">WHEN</span> DATEDIFF(CURDATE(), hire_date) <span class="operator">&gt;=</span> <span class="number">365</span>  <span class="keyword">THEN</span> <span class="string">&#x27;正式员工&#x27;</span></span><br><span class="line">        <span class="keyword">ELSE</span> <span class="string">&#x27;新员工&#x27;</span></span><br><span class="line">    <span class="keyword">END</span> <span class="keyword">AS</span> emp_tag</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-在-WHERE-中使用（条件筛选）"><a href="#3-在-WHERE-中使用（条件筛选）" class="headerlink" title="3. 在 WHERE 中使用（条件筛选）"></a>3. 在 WHERE 中使用（条件筛选）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 筛选出不同部门满足不同工资标准的员工</span></span><br><span class="line"><span class="comment">-- 技术部要求工资 &gt;= 15000，其他部门要求 &gt;= 10000</span></span><br><span class="line"><span class="keyword">SELECT</span> name, department, salary</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> salary <span class="operator">&gt;=</span> <span class="keyword">CASE</span></span><br><span class="line">    <span class="keyword">WHEN</span> department <span class="operator">=</span> <span class="string">&#x27;技术部&#x27;</span> <span class="keyword">THEN</span> <span class="number">15000</span></span><br><span class="line">    <span class="keyword">ELSE</span> <span class="number">10000</span></span><br><span class="line"><span class="keyword">END</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-在-ORDER-BY-中使用（自定义排序）"><a href="#4-在-ORDER-BY-中使用（自定义排序）" class="headerlink" title="4. 在 ORDER BY 中使用（自定义排序）"></a>4. 在 ORDER BY 中使用（自定义排序）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 自定义部门排序：技术部排第一，销售部第二，其余最后</span></span><br><span class="line"><span class="keyword">SELECT</span> name, department, salary</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span></span><br><span class="line">    <span class="keyword">CASE</span> department</span><br><span class="line">        <span class="keyword">WHEN</span> <span class="string">&#x27;技术部&#x27;</span> <span class="keyword">THEN</span> <span class="number">1</span></span><br><span class="line">        <span class="keyword">WHEN</span> <span class="string">&#x27;销售部&#x27;</span> <span class="keyword">THEN</span> <span class="number">2</span></span><br><span class="line">        <span class="keyword">WHEN</span> <span class="string">&#x27;人事部&#x27;</span> <span class="keyword">THEN</span> <span class="number">3</span></span><br><span class="line">        <span class="keyword">ELSE</span> <span class="number">99</span></span><br><span class="line">    <span class="keyword">END</span>,</span><br><span class="line">    salary <span class="keyword">DESC</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-在-GROUP-BY-中使用（按条件分组）"><a href="#5-在-GROUP-BY-中使用（按条件分组）" class="headerlink" title="5. 在 GROUP BY 中使用（按条件分组）"></a>5. 在 GROUP BY 中使用（按条件分组）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 按工资区间分组统计人数</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    <span class="keyword">CASE</span></span><br><span class="line">        <span class="keyword">WHEN</span> salary <span class="operator">&gt;=</span> <span class="number">15000</span> <span class="keyword">THEN</span> <span class="string">&#x27;高薪 (≥15000)&#x27;</span></span><br><span class="line">        <span class="keyword">WHEN</span> salary <span class="operator">&gt;=</span> <span class="number">10000</span> <span class="keyword">THEN</span> <span class="string">&#x27;中薪 (10000-14999)&#x27;</span></span><br><span class="line">        <span class="keyword">WHEN</span> salary <span class="keyword">IS</span> <span class="keyword">NOT NULL</span> <span class="keyword">THEN</span> <span class="string">&#x27;低薪 (&lt;10000)&#x27;</span></span><br><span class="line">        <span class="keyword">ELSE</span> <span class="string">&#x27;未知&#x27;</span></span><br><span class="line">    <span class="keyword">END</span> <span class="keyword">AS</span> salary_range,</span><br><span class="line">    <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">AS</span> emp_count,</span><br><span class="line">    ROUND(<span class="built_in">AVG</span>(salary), <span class="number">2</span>) <span class="keyword">AS</span> avg_salary</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> salary_range;</span><br></pre></td></tr></table></figure>
+
+<h3 id="6-⭐-搭配聚合函数（条件统计）"><a href="#6-⭐-搭配聚合函数（条件统计）" class="headerlink" title="6. ⭐ 搭配聚合函数（条件统计）"></a>6. ⭐ 搭配聚合函数（条件统计）</h3><p>这是 <code>CASE WHEN</code> 最实用也最强大的用法之一——在一次查询中按不同条件分别统计。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 一次查询统计各部门的工资分布</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    department,</span><br><span class="line">    <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">AS</span> total,</span><br><span class="line">    <span class="built_in">SUM</span>(<span class="keyword">CASE</span> <span class="keyword">WHEN</span> salary <span class="operator">&gt;=</span> <span class="number">15000</span> <span class="keyword">THEN</span> <span class="number">1</span> <span class="keyword">ELSE</span> <span class="number">0</span> <span class="keyword">END</span>) <span class="keyword">AS</span> high_salary_count,</span><br><span class="line">    <span class="built_in">SUM</span>(<span class="keyword">CASE</span> <span class="keyword">WHEN</span> salary <span class="operator">&lt;</span> <span class="number">15000</span> <span class="keyword">THEN</span> <span class="number">1</span> <span class="keyword">ELSE</span> <span class="number">0</span> <span class="keyword">END</span>) <span class="keyword">AS</span> low_salary_count,</span><br><span class="line">    ROUND(<span class="built_in">AVG</span>(<span class="keyword">CASE</span> <span class="keyword">WHEN</span> salary <span class="operator">&gt;=</span> <span class="number">15000</span> <span class="keyword">THEN</span> salary <span class="keyword">END</span>), <span class="number">2</span>) <span class="keyword">AS</span> avg_high_salary</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> department;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <strong>补充</strong>：<code>SUM(CASE WHEN ... THEN 1 ELSE 0 END)</code> 和 <code>COUNT(CASE WHEN ... THEN 1 END)</code> 效果一样，都是条件计数。区别是 <code>COUNT</code> 版本不需要 <code>ELSE 0</code>（因为 <code>COUNT</code> 不统计 NULL）。</p>
+</blockquote>
+<h3 id="7-⭐-行转列（经典应用）"><a href="#7-⭐-行转列（经典应用）" class="headerlink" title="7. ⭐ 行转列（经典应用）"></a>7. ⭐ 行转列（经典应用）</h3><p><code>CASE WHEN</code> + 聚合函数实现<strong>行转列</strong>，这是非常经典的用法。</p>
+<p>假设有一张成绩表：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> score (</span><br><span class="line">    student <span class="type">VARCHAR</span>(<span class="number">20</span>),</span><br><span class="line">    subject <span class="type">VARCHAR</span>(<span class="number">20</span>),</span><br><span class="line">    grade <span class="type">INT</span></span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">INSERT INTO</span> score <span class="keyword">VALUES</span></span><br><span class="line">(<span class="string">&#x27;张三&#x27;</span>, <span class="string">&#x27;语文&#x27;</span>, <span class="number">85</span>), (<span class="string">&#x27;张三&#x27;</span>, <span class="string">&#x27;数学&#x27;</span>, <span class="number">92</span>), (<span class="string">&#x27;张三&#x27;</span>, <span class="string">&#x27;英语&#x27;</span>, <span class="number">78</span>),</span><br><span class="line">(<span class="string">&#x27;李四&#x27;</span>, <span class="string">&#x27;语文&#x27;</span>, <span class="number">90</span>), (<span class="string">&#x27;李四&#x27;</span>, <span class="string">&#x27;数学&#x27;</span>, <span class="number">88</span>), (<span class="string">&#x27;李四&#x27;</span>, <span class="string">&#x27;英语&#x27;</span>, <span class="number">95</span>),</span><br><span class="line">(<span class="string">&#x27;王五&#x27;</span>, <span class="string">&#x27;语文&#x27;</span>, <span class="number">75</span>), (<span class="string">&#x27;王五&#x27;</span>, <span class="string">&#x27;数学&#x27;</span>, <span class="number">60</span>), (<span class="string">&#x27;王五&#x27;</span>, <span class="string">&#x27;英语&#x27;</span>, <span class="number">82</span>);</span><br></pre></td></tr></table></figure>
+
+<p><strong>行转列</strong>：将每个科目从行变成列</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    student,</span><br><span class="line">    <span class="built_in">MAX</span>(<span class="keyword">CASE</span> <span class="keyword">WHEN</span> subject <span class="operator">=</span> <span class="string">&#x27;语文&#x27;</span> <span class="keyword">THEN</span> grade <span class="keyword">END</span>) <span class="keyword">AS</span> <span class="string">&#x27;语文&#x27;</span>,</span><br><span class="line">    <span class="built_in">MAX</span>(<span class="keyword">CASE</span> <span class="keyword">WHEN</span> subject <span class="operator">=</span> <span class="string">&#x27;数学&#x27;</span> <span class="keyword">THEN</span> grade <span class="keyword">END</span>) <span class="keyword">AS</span> <span class="string">&#x27;数学&#x27;</span>,</span><br><span class="line">    <span class="built_in">MAX</span>(<span class="keyword">CASE</span> <span class="keyword">WHEN</span> subject <span class="operator">=</span> <span class="string">&#x27;英语&#x27;</span> <span class="keyword">THEN</span> grade <span class="keyword">END</span>) <span class="keyword">AS</span> <span class="string">&#x27;英语&#x27;</span></span><br><span class="line"><span class="keyword">FROM</span> score</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> student;</span><br></pre></td></tr></table></figure>
+
+<p>结果：</p>
+<table>
+<thead>
+<tr>
+<th>student</th>
+<th>语文</th>
+<th>数学</th>
+<th>英语</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>张三</td>
+<td>85</td>
+<td>92</td>
+<td>78</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>90</td>
+<td>88</td>
+<td>95</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>75</td>
+<td>60</td>
+<td>82</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 这里用 <code>MAX</code> 是因为每个学生每科只有一条记录，<code>MAX</code> 用来”去掉” <code>NULL</code>（没匹配到的科目返回 NULL，<code>MAX</code> 会忽略 NULL 取出有效值）。用 <code>SUM</code> 或 <code>MIN</code> 也可以。</p>
+</blockquote>
+<h3 id="8-CASE-WHEN-vs-IF"><a href="#8-CASE-WHEN-vs-IF" class="headerlink" title="8. CASE WHEN vs IF()"></a>8. CASE WHEN vs IF()</h3><p>MySQL 还提供了 <code>IF()</code> 函数，在<strong>只有两个分支</strong>的情况下可以替代简单的 CASE WHEN：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- IF(条件, 为真的值, 为假的值)</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name,</span><br><span class="line">    IF(salary <span class="operator">&gt;=</span> <span class="number">15000</span>, <span class="string">&#x27;高薪&#x27;</span>, <span class="string">&#x27;普通&#x27;</span>) <span class="keyword">AS</span> salary_tag</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 等价的 CASE WHEN</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name,</span><br><span class="line">    <span class="keyword">CASE</span> <span class="keyword">WHEN</span> salary <span class="operator">&gt;=</span> <span class="number">15000</span> <span class="keyword">THEN</span> <span class="string">&#x27;高薪&#x27;</span> <span class="keyword">ELSE</span> <span class="string">&#x27;普通&#x27;</span> <span class="keyword">END</span> <span class="keyword">AS</span> salary_tag</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>对比</th>
+<th>CASE WHEN</th>
+<th>IF()</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>分支数量</td>
+<td>支持<strong>多分支</strong></td>
+<td>仅支持 <strong>2 个分支</strong></td>
+</tr>
+<tr>
+<td>SQL 标准</td>
+<td>✅ 标准语法</td>
+<td>❌ MySQL 特有</td>
+</tr>
+<tr>
+<td>可读性</td>
+<td>多分支时更清晰</td>
+<td>简单场景更简洁</td>
+</tr>
+<tr>
+<td>推荐场景</td>
+<td>通用场景</td>
+<td>简单的二选一</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>建议</strong>：简单的真&#x2F;假判断用 <code>IF()</code>，多条件分支用 <code>CASE WHEN</code>。如果考虑跨数据库兼容，统一使用 <code>CASE WHEN</code>。</p>
+</blockquote>
+<hr>
+<h2 id="四、综合对比速查表"><a href="#四、综合对比速查表" class="headerlink" title="四、综合对比速查表"></a>四、综合对比速查表</h2><table>
+<thead>
+<tr>
+<th>关键字</th>
+<th>作用</th>
+<th>执行时机</th>
+<th>能否用聚合函数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>WHERE</code></td>
+<td>过滤<strong>行</strong></td>
+<td><code>GROUP BY</code> 之前</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><code>GROUP BY</code></td>
+<td><strong>分组</strong>数据</td>
+<td><code>WHERE</code> 之后</td>
+<td>搭配聚合函数使用</td>
+</tr>
+<tr>
+<td><code>HAVING</code></td>
+<td>过滤<strong>分组</strong></td>
+<td><code>GROUP BY</code> 之后</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><code>CASE WHEN</code></td>
+<td><strong>条件表达式</strong></td>
+<td>取决于所在位置</td>
+<td>可以搭配使用</td>
+</tr>
+</tbody></table>
+<p><strong>完整的 SQL 执行顺序</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">FROM        -- 确定数据来源</span><br><span class="line">  → WHERE   -- 过滤行（不能用聚合函数）</span><br><span class="line">  → GROUP BY -- 分组</span><br><span class="line">  → HAVING  -- 过滤分组（可以用聚合函数）</span><br><span class="line">  → SELECT  -- 选择列、计算表达式</span><br><span class="line">  → ORDER BY -- 排序</span><br><span class="line">  → LIMIT   -- 限制返回行数</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="五、LeetCode-相关练习"><a href="#五、LeetCode-相关练习" class="headerlink" title="五、LeetCode 相关练习"></a>五、LeetCode 相关练习</h2><!-- 在此添加相关 LeetCode 题目链接 -->
+
+<blockquote>
+<p>🔗 后续待补充..</p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer"><script src="https://giscus.app/client.js"
+        data-repo="2023Andrewyang/2023Andrewyang.github.io"
+        data-repo-id="R_kgDORLUYLQ"
+        data-category="General"
+        data-category-id="DIC_kwDORLUYLc4C2JUx"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="preferred_color_scheme"
+        data-lang="zh-CN"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+
+
+          <div class="post-tags">
+              <a href="/tags/SQL/" rel="tag"># SQL</a>
+              <a href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag"># 数据库</a>
+              <a href="/tags/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" rel="tag"># 学习笔记</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2026/02/19/SQL%E5%9F%BA%E7%A1%80-%E6%97%B6%E9%97%B4%E5%87%BD%E6%95%B0/" rel="prev" title="SQL基础-时间函数">
+                  <i class="fa fa-angle-left"></i> SQL基础-时间函数
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">Andrew Yang</span>
+  </div>
+<div class="wordcount">
+  <span class="post-meta-item">
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-line"></i>
+    </span>
+    <span title="站点总字数">14k</span>
+  </span>
+  <span class="post-meta-item">
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">52 分钟</span>
+  </span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+</body>
+</html>
