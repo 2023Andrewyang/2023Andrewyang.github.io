@@ -152,7 +152,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">8</span>
+        <span class="site-state-item-count">9</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -208,7 +208,7 @@
       <span class="post-meta-item-text">发表于</span>
       
 
-      <time title="创建时间：2026-02-19 23:12:01 / 修改时间：23:55:27" itemprop="dateCreated datePublished" datetime="2026-02-19T23:12:01+08:00">2026-02-19</time>
+      <time title="创建时间：2026-02-19 23:12:01 / 修改时间：23:57:58" itemprop="dateCreated datePublished" datetime="2026-02-19T23:12:01+08:00">2026-02-19</time>
     </span>
 
   
@@ -238,349 +238,14 @@
     <div class="post-body" itemprop="articleBody">
           <p>最近在复习 SQL，发现时间相关的函数种类很多，在日常开发中也非常常用，所以整理了这份速查手册，方便日后快速查阅和复习。</p>
 <hr>
-<!-- more -- >
-
-## 一、获取当前时间
-
-### 1. `NOW()`
-
-返回当前的日期和时间（`YYYY-MM-DD HH:MM:SS`）。
-
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> NOW();</span><br><span class="line"><span class="comment">-- 输出: 2026-02-19 23:12:01</span></span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>⚠️ <strong>注意</strong>：<code>NOW()</code> 在同一条 SQL 语句中多次调用，返回值<strong>相同</strong>（取语句开始执行的时间）。如果需要实时变化的时间，请使用 <code>SYSDATE()</code>。</p>
-</blockquote>
-<h3 id="2-SYSDATE"><a href="#2-SYSDATE" class="headerlink" title="2. SYSDATE()"></a>2. <code>SYSDATE()</code></h3><p>返回函数<strong>执行时刻</strong>的日期和时间。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> SYSDATE(), SLEEP(<span class="number">2</span>), SYSDATE();</span><br><span class="line"><span class="comment">-- 第一个和第二个 SYSDATE() 结果会相差 2 秒</span></span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>⚠️ <strong>与 <code>NOW()</code> 的区别</strong>：<code>NOW()</code> 取的是语句开始时间，<code>SYSDATE()</code> 取的是函数实际执行时间。在主从复制场景中，<code>SYSDATE()</code> 可能导致数据不一致，生产环境建议优先使用 <code>NOW()</code>。</p>
-</blockquote>
-<h3 id="3-CURDATE-CURRENT-DATE"><a href="#3-CURDATE-CURRENT-DATE" class="headerlink" title="3. CURDATE() &#x2F; CURRENT_DATE"></a>3. <code>CURDATE()</code> &#x2F; <code>CURRENT_DATE</code></h3><p>仅返回当前<strong>日期</strong>（<code>YYYY-MM-DD</code>）。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> CURDATE();</span><br><span class="line"><span class="comment">-- 输出: 2026-02-19</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> <span class="built_in">CURRENT_DATE</span>;</span><br><span class="line"><span class="comment">-- 输出: 2026-02-19（注意：CURRENT_DATE 不加括号）</span></span><br></pre></td></tr></table></figure>
-
-<h3 id="4-CURTIME-CURRENT-TIME"><a href="#4-CURTIME-CURRENT-TIME" class="headerlink" title="4. CURTIME() &#x2F; CURRENT_TIME"></a>4. <code>CURTIME()</code> &#x2F; <code>CURRENT_TIME</code></h3><p>仅返回当前<strong>时间</strong>（<code>HH:MM:SS</code>）。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> CURTIME();</span><br><span class="line"><span class="comment">-- 输出: 23:12:01</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> <span class="built_in">CURRENT_TIME</span>;</span><br><span class="line"><span class="comment">-- 输出: 23:12:01</span></span><br></pre></td></tr></table></figure>
-
-<hr>
-<h2 id="二、提取时间部分"><a href="#二、提取时间部分" class="headerlink" title="二、提取时间部分"></a>二、提取时间部分</h2><h3 id="1-YEAR-MONTH-DAY"><a href="#1-YEAR-MONTH-DAY" class="headerlink" title="1. YEAR() &#x2F; MONTH() &#x2F; DAY()"></a>1. <code>YEAR()</code> &#x2F; <code>MONTH()</code> &#x2F; <code>DAY()</code></h3><p>分别提取日期中的<strong>年、月、日</strong>。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="keyword">YEAR</span>(<span class="string">&#x27;2026-02-19&#x27;</span>);   <span class="comment">-- 输出: 2026</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="keyword">MONTH</span>(<span class="string">&#x27;2026-02-19&#x27;</span>);  <span class="comment">-- 输出: 2</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="keyword">DAY</span>(<span class="string">&#x27;2026-02-19&#x27;</span>);    <span class="comment">-- 输出: 19</span></span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>💡 <code>DAY()</code> 等价于 <code>DAYOFMONTH()</code>。</p>
-</blockquote>
-<h3 id="2-HOUR-MINUTE-SECOND"><a href="#2-HOUR-MINUTE-SECOND" class="headerlink" title="2. HOUR() &#x2F; MINUTE() &#x2F; SECOND()"></a>2. <code>HOUR()</code> &#x2F; <code>MINUTE()</code> &#x2F; <code>SECOND()</code></h3><p>提取时间中的<strong>时、分、秒</strong>。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="keyword">HOUR</span>(<span class="string">&#x27;23:12:01&#x27;</span>);    <span class="comment">-- 输出: 23</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="keyword">MINUTE</span>(<span class="string">&#x27;23:12:01&#x27;</span>);  <span class="comment">-- 输出: 12</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="keyword">SECOND</span>(<span class="string">&#x27;23:12:01&#x27;</span>);  <span class="comment">-- 输出: 1</span></span><br></pre></td></tr></table></figure>
-
-<h3 id="3-EXTRACT-unit-FROM-date"><a href="#3-EXTRACT-unit-FROM-date" class="headerlink" title="3. EXTRACT(unit FROM date)"></a>3. <code>EXTRACT(unit FROM date)</code></h3><p>通用的时间部分提取函数，<code>unit</code> 支持多种单位。</p>
-<p><strong>常用 unit 值</strong>：<code>YEAR</code>、<code>MONTH</code>、<code>DAY</code>、<code>HOUR</code>、<code>MINUTE</code>、<code>SECOND</code>、<code>QUARTER</code>、<code>WEEK</code></p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="built_in">EXTRACT</span>(<span class="keyword">YEAR</span> <span class="keyword">FROM</span> <span class="string">&#x27;2026-02-19 23:12:01&#x27;</span>);    <span class="comment">-- 输出: 2026</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="built_in">EXTRACT</span>(<span class="keyword">MONTH</span> <span class="keyword">FROM</span> <span class="string">&#x27;2026-02-19 23:12:01&#x27;</span>);   <span class="comment">-- 输出: 2</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="built_in">EXTRACT</span>(<span class="keyword">HOUR</span> <span class="keyword">FROM</span> <span class="string">&#x27;2026-02-19 23:12:01&#x27;</span>);    <span class="comment">-- 输出: 23</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="built_in">EXTRACT</span>(QUARTER <span class="keyword">FROM</span> <span class="string">&#x27;2026-02-19&#x27;</span>);           <span class="comment">-- 输出: 1（第一季度）</span></span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>💡 <strong>补充</strong>：<code>EXTRACT</code> 是 SQL 标准语法，跨数据库兼容性更好，值得优先掌握。</p>
-</blockquote>
-<h3 id="4-DAYOFWEEK-WEEKDAY-DAYNAME"><a href="#4-DAYOFWEEK-WEEKDAY-DAYNAME" class="headerlink" title="4. DAYOFWEEK() &#x2F; WEEKDAY() &#x2F; DAYNAME()"></a>4. <code>DAYOFWEEK()</code> &#x2F; <code>WEEKDAY()</code> &#x2F; <code>DAYNAME()</code></h3><p>获取日期对应的<strong>星期</strong>信息。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- DAYOFWEEK(): 1=周日, 2=周一, ..., 7=周六</span></span><br><span class="line"><span class="keyword">SELECT</span> DAYOFWEEK(<span class="string">&#x27;2026-02-19&#x27;</span>);  <span class="comment">-- 输出: 5（周四）</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- WEEKDAY(): 0=周一, 1=周二, ..., 6=周日</span></span><br><span class="line"><span class="keyword">SELECT</span> WEEKDAY(<span class="string">&#x27;2026-02-19&#x27;</span>);    <span class="comment">-- 输出: 3（周四）</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- DAYNAME(): 返回英文星期名</span></span><br><span class="line"><span class="keyword">SELECT</span> DAYNAME(<span class="string">&#x27;2026-02-19&#x27;</span>);    <span class="comment">-- 输出: Thursday</span></span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>⚠️ <strong>易错点</strong>：<code>DAYOFWEEK()</code> 和 <code>WEEKDAY()</code> 的编号方式不同！<code>DAYOFWEEK()</code> 以周日为 1 开始，<code>WEEKDAY()</code> 以周一为 0 开始。使用时一定注意区分。</p>
-</blockquote>
-<h3 id="5-DAYOFYEAR"><a href="#5-DAYOFYEAR" class="headerlink" title="5. DAYOFYEAR()"></a>5. <code>DAYOFYEAR()</code></h3><p>返回日期是当年的第几天（1-366）。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> DAYOFYEAR(<span class="string">&#x27;2026-02-19&#x27;</span>);  <span class="comment">-- 输出: 50</span></span><br></pre></td></tr></table></figure>
-
-<h3 id="6-QUARTER"><a href="#6-QUARTER" class="headerlink" title="6. QUARTER()"></a>6. <code>QUARTER()</code></h3><p>返回日期所属的<strong>季度</strong>（1-4）。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> QUARTER(<span class="string">&#x27;2026-02-19&#x27;</span>);  <span class="comment">-- 输出: 1</span></span><br><span class="line"><span class="keyword">SELECT</span> QUARTER(<span class="string">&#x27;2026-08-15&#x27;</span>);  <span class="comment">-- 输出: 3</span></span><br></pre></td></tr></table></figure>
-
-<h3 id="7-WEEK-WEEKOFYEAR"><a href="#7-WEEK-WEEKOFYEAR" class="headerlink" title="7. WEEK() &#x2F; WEEKOFYEAR()"></a>7. <code>WEEK()</code> &#x2F; <code>WEEKOFYEAR()</code></h3><p>返回日期是当年的第几周。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> WEEK(<span class="string">&#x27;2026-02-19&#x27;</span>);        <span class="comment">-- 输出: 7</span></span><br><span class="line"><span class="keyword">SELECT</span> WEEKOFYEAR(<span class="string">&#x27;2026-02-19&#x27;</span>); <span class="comment">-- 输出: 8</span></span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>⚠️ <strong>注意</strong>：<code>WEEK()</code> 的结果受 <code>default_week_format</code> 系统变量影响，可通过第二个参数指定模式。<code>WEEKOFYEAR()</code> 等价于 <code>WEEK(date, 3)</code>，遵循 ISO 标准。建议统一使用 <code>WEEKOFYEAR()</code> 或明确指定 <code>WEEK(date, mode)</code>，避免歧义。</p>
-</blockquote>
-<hr>
-<h2 id="三、时间运算（加减法）"><a href="#三、时间运算（加减法）" class="headerlink" title="三、时间运算（加减法）"></a>三、时间运算（加减法）</h2><h3 id="1-DATE-ADD-date-INTERVAL-expr-unit-DATE-SUB-date-INTERVAL-expr-unit"><a href="#1-DATE-ADD-date-INTERVAL-expr-unit-DATE-SUB-date-INTERVAL-expr-unit" class="headerlink" title="1. DATE_ADD(date, INTERVAL expr unit) &#x2F; DATE_SUB(date, INTERVAL expr unit)"></a>1. <code>DATE_ADD(date, INTERVAL expr unit)</code> &#x2F; <code>DATE_SUB(date, INTERVAL expr unit)</code></h3><p>对日期进行<strong>加法&#x2F;减法</strong>运算，最常用的时间运算函数。</p>
-<p><strong>常用 unit 值</strong>：<code>SECOND</code>、<code>MINUTE</code>、<code>HOUR</code>、<code>DAY</code>、<code>WEEK</code>、<code>MONTH</code>、<code>QUARTER</code>、<code>YEAR</code></p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 加 3 天</span></span><br><span class="line"><span class="keyword">SELECT</span> DATE_ADD(<span class="string">&#x27;2026-02-19&#x27;</span>, <span class="type">INTERVAL</span> <span class="number">3</span> <span class="keyword">DAY</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-22</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 减 1 个月</span></span><br><span class="line"><span class="keyword">SELECT</span> DATE_SUB(<span class="string">&#x27;2026-02-19&#x27;</span>, <span class="type">INTERVAL</span> <span class="number">1</span> <span class="keyword">MONTH</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-01-19</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 加 2 小时 30 分钟</span></span><br><span class="line"><span class="keyword">SELECT</span> DATE_ADD(<span class="string">&#x27;2026-02-19 23:12:01&#x27;</span>, <span class="type">INTERVAL</span> <span class="string">&#x27;2:30&#x27;</span> HOUR_MINUTE);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-20 01:42:01</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 也可以用负数实现减法</span></span><br><span class="line"><span class="keyword">SELECT</span> DATE_ADD(<span class="string">&#x27;2026-02-19&#x27;</span>, <span class="type">INTERVAL</span> <span class="number">-7</span> <span class="keyword">DAY</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-12</span></span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>💡 <strong>复合单位</strong>：<code>HOUR_MINUTE</code>、<code>DAY_HOUR</code>、<code>YEAR_MONTH</code> 等可以一次操作多个部分。</p>
-</blockquote>
-<blockquote>
-<p>⚠️ <strong>月末溢出</strong>：<code>DATE_ADD(&#39;2026-01-31&#39;, INTERVAL 1 MONTH)</code> 结果是 <code>2026-02-28</code>，MySQL 会自动调整到当月最后一天，而不是报错。</p>
-</blockquote>
-<h3 id="2-ADDDATE-SUBDATE"><a href="#2-ADDDATE-SUBDATE" class="headerlink" title="2. ADDDATE() &#x2F; SUBDATE()"></a>2. <code>ADDDATE()</code> &#x2F; <code>SUBDATE()</code></h3><p><code>DATE_ADD</code> &#x2F; <code>DATE_SUB</code> 的同义函数。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 与 DATE_ADD 完全等价</span></span><br><span class="line"><span class="keyword">SELECT</span> ADDDATE(<span class="string">&#x27;2026-02-19&#x27;</span>, <span class="type">INTERVAL</span> <span class="number">3</span> <span class="keyword">DAY</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-22</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 第二个参数为整数时，默认单位是 DAY</span></span><br><span class="line"><span class="keyword">SELECT</span> ADDDATE(<span class="string">&#x27;2026-02-19&#x27;</span>, <span class="number">3</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-22</span></span><br></pre></td></tr></table></figure>
-
-<h3 id="3-DATEDIFF-date1-date2"><a href="#3-DATEDIFF-date1-date2" class="headerlink" title="3. DATEDIFF(date1, date2)"></a>3. <code>DATEDIFF(date1, date2)</code></h3><p>计算两个日期之间相差的<strong>天数</strong>（<code>date1 - date2</code>）。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> DATEDIFF(<span class="string">&#x27;2026-02-19&#x27;</span>, <span class="string">&#x27;2026-01-01&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 49</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> DATEDIFF(<span class="string">&#x27;2026-01-01&#x27;</span>, <span class="string">&#x27;2026-02-19&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: -49</span></span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>⚠️ <strong>注意</strong>：<code>DATEDIFF</code> 只比较日期部分，忽略时间部分。参数顺序影响正负号。</p>
-</blockquote>
-<h3 id="4-TIMESTAMPDIFF-unit-datetime1-datetime2"><a href="#4-TIMESTAMPDIFF-unit-datetime1-datetime2" class="headerlink" title="4. TIMESTAMPDIFF(unit, datetime1, datetime2)"></a>4. <code>TIMESTAMPDIFF(unit, datetime1, datetime2)</code></h3><p>计算两个日期&#x2F;时间之间的差值，可指定返回单位（<code>datetime2 - datetime1</code>）。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 相差多少天</span></span><br><span class="line"><span class="keyword">SELECT</span> TIMESTAMPDIFF(<span class="keyword">DAY</span>, <span class="string">&#x27;2026-01-01&#x27;</span>, <span class="string">&#x27;2026-02-19&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 49</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 相差多少小时</span></span><br><span class="line"><span class="keyword">SELECT</span> TIMESTAMPDIFF(<span class="keyword">HOUR</span>, <span class="string">&#x27;2026-02-19 00:00:00&#x27;</span>, <span class="string">&#x27;2026-02-19 23:12:01&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 23</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 相差多少月</span></span><br><span class="line"><span class="keyword">SELECT</span> TIMESTAMPDIFF(<span class="keyword">MONTH</span>, <span class="string">&#x27;2025-08-19&#x27;</span>, <span class="string">&#x27;2026-02-19&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 6</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 相差多少年（常用于计算年龄）</span></span><br><span class="line"><span class="keyword">SELECT</span> TIMESTAMPDIFF(<span class="keyword">YEAR</span>, <span class="string">&#x27;1995-06-15&#x27;</span>, CURDATE());</span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>💡 <strong>实用技巧</strong>：计算年龄时推荐使用 <code>TIMESTAMPDIFF(YEAR, birth_date, CURDATE())</code>，比手动计算更准确。</p>
-</blockquote>
-<blockquote>
-<p>⚠️ <strong>参数顺序</strong>：注意是 <code>datetime2 - datetime1</code>，与 <code>DATEDIFF</code> 的 <code>date1 - date2</code> 相反！</p>
-</blockquote>
-<hr>
-<h2 id="四、时间格式化与解析"><a href="#四、时间格式化与解析" class="headerlink" title="四、时间格式化与解析"></a>四、时间格式化与解析</h2><h3 id="1-DATE-FORMAT-date-format"><a href="#1-DATE-FORMAT-date-format" class="headerlink" title="1. DATE_FORMAT(date, format)"></a>1. <code>DATE_FORMAT(date, format)</code></h3><p>将日期按照指定格式输出为<strong>字符串</strong>，开发中使用频率极高。</p>
-<p><strong>常用格式符</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>格式符</th>
-<th>说明</th>
-<th>示例</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>%Y</code></td>
-<td>四位年份</td>
-<td>2026</td>
-</tr>
-<tr>
-<td><code>%y</code></td>
-<td>两位年份</td>
-<td>26</td>
-</tr>
-<tr>
-<td><code>%m</code></td>
-<td>月份（补零）</td>
-<td>02</td>
-</tr>
-<tr>
-<td><code>%c</code></td>
-<td>月份（不补零）</td>
-<td>2</td>
-</tr>
-<tr>
-<td><code>%d</code></td>
-<td>日（补零）</td>
-<td>19</td>
-</tr>
-<tr>
-<td><code>%e</code></td>
-<td>日（不补零）</td>
-<td>19</td>
-</tr>
-<tr>
-<td><code>%H</code></td>
-<td>24小时制（补零）</td>
-<td>23</td>
-</tr>
-<tr>
-<td><code>%h</code> &#x2F; <code>%I</code></td>
-<td>12小时制（补零）</td>
-<td>11</td>
-</tr>
-<tr>
-<td><code>%i</code></td>
-<td>分钟（补零）</td>
-<td>12</td>
-</tr>
-<tr>
-<td><code>%s</code></td>
-<td>秒（补零）</td>
-<td>01</td>
-</tr>
-<tr>
-<td><code>%W</code></td>
-<td>星期名（英文）</td>
-<td>Thursday</td>
-</tr>
-<tr>
-<td><code>%w</code></td>
-<td>星期（0&#x3D;周日）</td>
-<td>4</td>
-</tr>
-<tr>
-<td><code>%M</code></td>
-<td>月份名（英文）</td>
-<td>February</td>
-</tr>
-<tr>
-<td><code>%j</code></td>
-<td>一年中的第几天</td>
-<td>050</td>
-</tr>
-<tr>
-<td><code>%p</code></td>
-<td>AM &#x2F; PM</td>
-<td>PM</td>
-</tr>
-<tr>
-<td><code>%T</code></td>
-<td>24小时时间</td>
-<td>23:12:01</td>
-</tr>
-<tr>
-<td><code>%r</code></td>
-<td>12小时时间</td>
-<td>11:12:01 PM</td>
-</tr>
-</tbody></table>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> DATE_FORMAT(<span class="string">&#x27;2026-02-19 23:12:01&#x27;</span>, <span class="string">&#x27;%Y-%m-%d&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-19</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> DATE_FORMAT(<span class="string">&#x27;2026-02-19 23:12:01&#x27;</span>, <span class="string">&#x27;%Y年%m月%d日&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026年02月19日</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> DATE_FORMAT(<span class="string">&#x27;2026-02-19 23:12:01&#x27;</span>, <span class="string">&#x27;%Y/%m/%d %H:%i:%s&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026/02/19 23:12:01</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> DATE_FORMAT(<span class="string">&#x27;2026-02-19 23:12:01&#x27;</span>, <span class="string">&#x27;%W, %M %d, %Y&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: Thursday, February 19, 2026</span></span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>⚠️ <strong>易错点</strong>：分钟是 <code>%i</code> 而不是 <code>%m</code>（<code>%m</code> 是月份）！这是非常常见的笔误。</p>
-</blockquote>
-<h3 id="2-STR-TO-DATE-str-format"><a href="#2-STR-TO-DATE-str-format" class="headerlink" title="2. STR_TO_DATE(str, format)"></a>2. <code>STR_TO_DATE(str, format)</code></h3><p>将<strong>字符串</strong>按照指定格式解析为日期，是 <code>DATE_FORMAT</code> 的逆操作。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> STR_TO_DATE(<span class="string">&#x27;2026-02-19&#x27;</span>, <span class="string">&#x27;%Y-%m-%d&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-19</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> STR_TO_DATE(<span class="string">&#x27;19/02/2026&#x27;</span>, <span class="string">&#x27;%d/%m/%Y&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-19</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> STR_TO_DATE(<span class="string">&#x27;February 19, 2026&#x27;</span>, <span class="string">&#x27;%M %d, %Y&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-19</span></span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>💡 <strong>使用场景</strong>：当数据源的日期格式不是 MySQL 标准格式时，用 <code>STR_TO_DATE</code> 进行转换后再存入数据库。</p>
-</blockquote>
-<h3 id="3-TIME-FORMAT-time-format"><a href="#3-TIME-FORMAT-time-format" class="headerlink" title="3. TIME_FORMAT(time, format)"></a>3. <code>TIME_FORMAT(time, format)</code></h3><p>与 <code>DATE_FORMAT</code> 类似，但专门用于格式化<strong>时间</strong>部分，只支持时间相关的格式符（<code>%H</code>, <code>%i</code>, <code>%s</code> 等）。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> TIME_FORMAT(<span class="string">&#x27;23:12:01&#x27;</span>, <span class="string">&#x27;%H时%i分%s秒&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 23时12分01秒</span></span><br></pre></td></tr></table></figure>
-
-<hr>
-<h2 id="五、时间戳转换"><a href="#五、时间戳转换" class="headerlink" title="五、时间戳转换"></a>五、时间戳转换</h2><h3 id="1-UNIX-TIMESTAMP"><a href="#1-UNIX-TIMESTAMP" class="headerlink" title="1. UNIX_TIMESTAMP()"></a>1. <code>UNIX_TIMESTAMP()</code></h3><p>将日期转换为 <strong>Unix 时间戳</strong>（自 1970-01-01 00:00:00 UTC 以来的秒数）。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 获取当前时间戳</span></span><br><span class="line"><span class="keyword">SELECT</span> UNIX_TIMESTAMP();</span><br><span class="line"><span class="comment">-- 输出: 1771437121（示例）</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 将指定日期转为时间戳</span></span><br><span class="line"><span class="keyword">SELECT</span> UNIX_TIMESTAMP(<span class="string">&#x27;2026-02-19 23:12:01&#x27;</span>);</span><br></pre></td></tr></table></figure>
-
-<h3 id="2-FROM-UNIXTIME-unix-timestamp-format"><a href="#2-FROM-UNIXTIME-unix-timestamp-format" class="headerlink" title="2. FROM_UNIXTIME(unix_timestamp [, format])"></a>2. <code>FROM_UNIXTIME(unix_timestamp [, format])</code></h3><p>将 <strong>Unix 时间戳</strong>转换回日期时间，可选格式化。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> FROM_UNIXTIME(<span class="number">1771437121</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-19 23:12:01</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 带格式化</span></span><br><span class="line"><span class="keyword">SELECT</span> FROM_UNIXTIME(<span class="number">1771437121</span>, <span class="string">&#x27;%Y-%m-%d&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-19</span></span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>💡 <strong>开发常用</strong>：很多系统使用时间戳存储时间，<code>FROM_UNIXTIME</code> 是查询时转换显示的必备函数。</p>
-</blockquote>
-<hr>
-<h2 id="六、日期构造与转换"><a href="#六、日期构造与转换" class="headerlink" title="六、日期构造与转换"></a>六、日期构造与转换</h2><h3 id="1-DATE-expr"><a href="#1-DATE-expr" class="headerlink" title="1. DATE(expr)"></a>1. <code>DATE(expr)</code></h3><p>从日期时间表达式中<strong>提取日期部分</strong>。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="type">DATE</span>(<span class="string">&#x27;2026-02-19 23:12:01&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-19</span></span><br></pre></td></tr></table></figure>
-
-<h3 id="2-TIME-expr"><a href="#2-TIME-expr" class="headerlink" title="2. TIME(expr)"></a>2. <code>TIME(expr)</code></h3><p>从日期时间表达式中<strong>提取时间部分</strong>。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="type">TIME</span>(<span class="string">&#x27;2026-02-19 23:12:01&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 23:12:01</span></span><br></pre></td></tr></table></figure>
-
-<h3 id="3-MAKEDATE-year-dayofyear"><a href="#3-MAKEDATE-year-dayofyear" class="headerlink" title="3. MAKEDATE(year, dayofyear)"></a>3. <code>MAKEDATE(year, dayofyear)</code></h3><p>根据年份和当年的第几天<strong>构造日期</strong>。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> MAKEDATE(<span class="number">2026</span>, <span class="number">50</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-19</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> MAKEDATE(<span class="number">2026</span>, <span class="number">1</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-01-01</span></span><br></pre></td></tr></table></figure>
-
-<h3 id="4-MAKETIME-hour-minute-second"><a href="#4-MAKETIME-hour-minute-second" class="headerlink" title="4. MAKETIME(hour, minute, second)"></a>4. <code>MAKETIME(hour, minute, second)</code></h3><p>根据时、分、秒<strong>构造时间</strong>。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> MAKETIME(<span class="number">23</span>, <span class="number">12</span>, <span class="number">1</span>);</span><br><span class="line"><span class="comment">-- 输出: 23:12:01</span></span><br></pre></td></tr></table></figure>
-
-<hr>
-<h2 id="七、其他常用函数"><a href="#七、其他常用函数" class="headerlink" title="七、其他常用函数"></a>七、其他常用函数</h2><h3 id="1-LAST-DAY-date"><a href="#1-LAST-DAY-date" class="headerlink" title="1. LAST_DAY(date)"></a>1. <code>LAST_DAY(date)</code></h3><p>返回指定日期所在月份的<strong>最后一天</strong>。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> LAST_DAY(<span class="string">&#x27;2026-02-19&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-28</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> LAST_DAY(<span class="string">&#x27;2024-02-19&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 2024-02-29（闰年）</span></span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>💡 <strong>实用技巧</strong>：结合使用可以计算当月天数：<code>DAY(LAST_DAY(date))</code>。</p>
-</blockquote>
-<h3 id="2-DATE-截断技巧"><a href="#2-DATE-截断技巧" class="headerlink" title="2. DATE() 截断技巧"></a>2. <code>DATE()</code> 截断技巧</h3><p>获取某天&#x2F;某月&#x2F;某年的起始时间：</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 当月第一天</span></span><br><span class="line"><span class="keyword">SELECT</span> DATE_FORMAT(<span class="string">&#x27;2026-02-19&#x27;</span>, <span class="string">&#x27;%Y-%m-01&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-01</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 也可以用 DATE_SUB 配合 DAY</span></span><br><span class="line"><span class="keyword">SELECT</span> DATE_SUB(<span class="string">&#x27;2026-02-19&#x27;</span>, <span class="type">INTERVAL</span> <span class="keyword">DAY</span>(<span class="string">&#x27;2026-02-19&#x27;</span>) <span class="operator">-</span> <span class="number">1</span> <span class="keyword">DAY</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-01</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 当年第一天</span></span><br><span class="line"><span class="keyword">SELECT</span> MAKEDATE(<span class="keyword">YEAR</span>(<span class="string">&#x27;2026-02-19&#x27;</span>), <span class="number">1</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-01-01</span></span><br></pre></td></tr></table></figure>
-
-<h3 id="3-CONVERT-TZ-dt-from-tz-to-tz"><a href="#3-CONVERT-TZ-dt-from-tz-to-tz" class="headerlink" title="3. CONVERT_TZ(dt, from_tz, to_tz)"></a>3. <code>CONVERT_TZ(dt, from_tz, to_tz)</code></h3><p>将日期时间从一个时区<strong>转换</strong>到另一个时区。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> CONVERT_TZ(<span class="string">&#x27;2026-02-19 23:12:01&#x27;</span>, <span class="string">&#x27;+08:00&#x27;</span>, <span class="string">&#x27;+00:00&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-19 15:12:01（从北京时间转为 UTC）</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> CONVERT_TZ(<span class="string">&#x27;2026-02-19 23:12:01&#x27;</span>, <span class="string">&#x27;+08:00&#x27;</span>, <span class="string">&#x27;-05:00&#x27;</span>);</span><br><span class="line"><span class="comment">-- 输出: 2026-02-19 10:12:01（从北京时间转为纽约时间）</span></span><br></pre></td></tr></table></figure>
-
-<hr>
-<h2 id="八、速查对照表"><a href="#八、速查对照表" class="headerlink" title="八、速查对照表"></a>八、速查对照表</h2><table>
-<thead>
-<tr>
-<th>需求</th>
-<th>函数</th>
-<th>示例</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>当前日期时间</td>
-<td><code>NOW()</code></td>
-<td><code>2026-02-19 23:12:01</code></td>
-</tr>
-<tr>
-<td>当前日期</td>
-<td><code>CURDATE()</code></td>
-<td><code>2026-02-19</code></td>
-</tr>
-<tr>
-<td>当前时间</td>
-<td><code>CURTIME()</code></td>
-<td><code>23:12:01</code></td>
-</tr>
-<tr>
-<td>提取年份</td>
-<td><code>YEAR(date)</code></td>
-<td><code>2026</code></td>
-</tr>
-<tr>
-<td>提取月份</td>
-<td><code>MONTH(date)</code></td>
-<td><code>2</code></td>
-</tr>
-<tr>
-<td>提取日</td>
-<td><code>DAY(date)</code></td>
-<td><code>19</code></td>
-</tr>
-<tr>
-<td>提取时分秒</td>
-<td><code>HOUR/MINUTE/SECOND</code></td>
-<td><code>23 / 12 / 1</code></td>
-</tr>
-<tr>
-<td>星期几</td>
-<td><code>DAYOFWEEK(date)</code></td>
-<td><code>5</code>（周四）</td>
-</tr>
-<tr>
-<td>第几季度</td>
-<td><code>QUARTER(date)</code></td>
-<td><code>1</code></td>
-</tr>
-<tr>
-<td>日期加减</td>
-<td><code>DATE_ADD/DATE_SUB</code></td>
-<td>见上文</td>
-</tr>
-<tr>
-<td>日期差（天）</td>
-<td><code>DATEDIFF(d1, d2)</code></td>
-<td><code>49</code></td>
-</tr>
-<tr>
-<td>日期差（任意单位）</td>
-<td><code>TIMESTAMPDIFF(unit, d1, d2)</code></td>
-<td>见上文</td>
-</tr>
-<tr>
-<td>格式化输出</td>
-<td><code>DATE_FORMAT(date, fmt)</code></td>
-<td><code>2026年02月19日</code></td>
-</tr>
-<tr>
-<td>字符串转日期</td>
-<td><code>STR_TO_DATE(str, fmt)</code></td>
-<td><code>2026-02-19</code></td>
-</tr>
-<tr>
-<td>日期转时间戳</td>
-<td><code>UNIX_TIMESTAMP(date)</code></td>
-<td><code>1771437121</code></td>
-</tr>
-<tr>
-<td>时间戳转日期</td>
-<td><code>FROM_UNIXTIME(ts)</code></td>
-<td><code>2026-02-19 23:12:01</code></td>
-</tr>
-<tr>
-<td>月末最后一天</td>
-<td><code>LAST_DAY(date)</code></td>
-<td><code>2026-02-28</code></td>
-</tr>
-<tr>
-<td>时区转换</td>
-<td><code>CONVERT_TZ(dt, from, to)</code></td>
-<td>见上文</td>
-</tr>
-</tbody></table>
-<hr>
-<h2 id="九、LeetCode-相关练习"><a href="#九、LeetCode-相关练习" class="headerlink" title="九、LeetCode 相关练习"></a>九、LeetCode 相关练习</h2><!-- 在此添加相关 LeetCode 题目链接 -->
-
-<blockquote>
-<p>🔗 后续待补充..</p>
-</blockquote>
-
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2026/02/19/SQL%E5%9F%BA%E7%A1%80-%E6%97%B6%E9%97%B4%E5%87%BD%E6%95%B0/#more" rel="contents">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
       
     </div>
 
@@ -642,7 +307,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-02-19 23:55:27" itemprop="dateModified" datetime="2026-02-19T23:55:27+08:00">2026-02-19</time>
+      <time title="修改时间：2026-02-19 23:57:58" itemprop="dateModified" datetime="2026-02-19T23:57:58+08:00">2026-02-19</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -749,7 +414,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-02-19 23:55:27" itemprop="dateModified" datetime="2026-02-19T23:55:27+08:00">2026-02-19</time>
+      <time title="修改时间：2026-02-19 23:57:58" itemprop="dateModified" datetime="2026-02-19T23:57:58+08:00">2026-02-19</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -860,7 +525,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">更新于</span>
-      <time title="修改时间：2026-02-19 23:55:27" itemprop="dateModified" datetime="2026-02-19T23:55:27+08:00">2026-02-19</time>
+      <time title="修改时间：2026-02-19 23:57:58" itemprop="dateModified" datetime="2026-02-19T23:57:58+08:00">2026-02-19</time>
     </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
