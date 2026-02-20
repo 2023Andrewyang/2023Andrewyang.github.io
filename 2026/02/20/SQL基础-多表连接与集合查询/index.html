@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" integrity="sha256-VHqXKFhhMxcpubYf9xiWdCiojEbY9NexQ4jh8AxbvcM=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"2023andrewyang.github.io","root":"/","images":"/images","scheme":"Gemini","darkmode":true,"version":"8.27.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"default","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":true,"style":"mac"},"fold":{"enable":false,"height":500},"language":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="最近在复习 SQL 的多表查询部分，发现 JOIN 的种类不少，再加上 UNION 集合操作，内容虽然不难但容易混淆，尤其是各种外连接的区别、ON 和 WHERE 在外连接中的不同表现等。所以把这些知识点整理到一起，方便对比学习和日后速查。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SQL基础-多表连接与集合查询">
+<meta property="og:url" content="https://2023andrewyang.github.io/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%A4%9A%E8%A1%A8%E8%BF%9E%E6%8E%A5%E4%B8%8E%E9%9B%86%E5%90%88%E6%9F%A5%E8%AF%A2/index.html">
+<meta property="og:site_name" content="Andrew&#39;s Blog">
+<meta property="og:description" content="最近在复习 SQL 的多表查询部分，发现 JOIN 的种类不少，再加上 UNION 集合操作，内容虽然不难但容易混淆，尤其是各种外连接的区别、ON 和 WHERE 在外连接中的不同表现等。所以把这些知识点整理到一起，方便对比学习和日后速查。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-02-20T06:00:00.000Z">
+<meta property="article:modified_time" content="2026-02-20T05:50:50.000Z">
+<meta property="article:author" content="Andrew Yang">
+<meta property="article:tag" content="SQL">
+<meta property="article:tag" content="数据库">
+<meta property="article:tag" content="学习笔记">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://2023andrewyang.github.io/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%A4%9A%E8%A1%A8%E8%BF%9E%E6%8E%A5%E4%B8%8E%E9%9B%86%E5%90%88%E6%9F%A5%E8%AF%A2/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://2023andrewyang.github.io/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%A4%9A%E8%A1%A8%E8%BF%9E%E6%8E%A5%E4%B8%8E%E9%9B%86%E5%90%88%E6%9F%A5%E8%AF%A2/","path":"2026/02/20/SQL基础-多表连接与集合查询/","title":"SQL基础-多表连接与集合查询"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>SQL基础-多表连接与集合查询 | Andrew's Blog</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/motion.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Andrew's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E4%BA%A4%E5%8F%89%E8%BF%9E%E6%8E%A5%EF%BC%88CROSS-JOIN%EF%BC%89"><span class="nav-number">1.</span> <span class="nav-text">一、交叉连接（CROSS JOIN）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E2%AD%90-%E5%86%85%E8%BF%9E%E6%8E%A5%EF%BC%88INNER-JOIN%EF%BC%89"><span class="nav-number">2.</span> <span class="nav-text">二、⭐ 内连接（INNER JOIN）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E2%AD%90-%E5%A4%96%E8%BF%9E%E6%8E%A5%EF%BC%88OUTER-JOIN%EF%BC%89"><span class="nav-number">3.</span> <span class="nav-text">三、⭐ 外连接（OUTER JOIN）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E5%B7%A6%E5%A4%96%E8%BF%9E%E6%8E%A5%EF%BC%88LEFT-JOIN%EF%BC%89"><span class="nav-number">3.1.</span> <span class="nav-text">1. 左外连接（LEFT JOIN）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E5%8F%B3%E5%A4%96%E8%BF%9E%E6%8E%A5%EF%BC%88RIGHT-JOIN%EF%BC%89"><span class="nav-number">3.2.</span> <span class="nav-text">2. 右外连接（RIGHT JOIN）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E5%85%A8%E5%A4%96%E8%BF%9E%E6%8E%A5%EF%BC%88FULL-OUTER-JOIN%EF%BC%89"><span class="nav-number">3.3.</span> <span class="nav-text">3. 全外连接（FULL OUTER JOIN）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-%E2%AD%90-%E5%A4%96%E8%BF%9E%E6%8E%A5%E4%B8%AD-ON-%E5%92%8C-WHERE-%E7%9A%84%E5%8C%BA%E5%88%AB"><span class="nav-number">3.4.</span> <span class="nav-text">4. ⭐ 外连接中 ON 和 WHERE 的区别</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E8%87%AA%E8%BF%9E%E6%8E%A5%EF%BC%88SELF-JOIN%EF%BC%89"><span class="nav-number">4.</span> <span class="nav-text">四、自连接（SELF JOIN）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81JOIN-%E8%BF%9E%E6%8E%A5%E7%B1%BB%E5%9E%8B%E5%AF%B9%E6%AF%94%E6%80%BB%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">五、JOIN 连接类型对比总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E2%AD%90-UNION-%E9%9B%86%E5%90%88%E6%93%8D%E4%BD%9C"><span class="nav-number">6.</span> <span class="nav-text">六、⭐ UNION 集合操作</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-UNION%EF%BC%88%E5%8E%BB%E9%87%8D%E5%90%88%E5%B9%B6%EF%BC%89"><span class="nav-number">6.1.</span> <span class="nav-text">1. UNION（去重合并）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-UNION-ALL%EF%BC%88%E4%B8%8D%E5%8E%BB%E9%87%8D%E5%90%88%E5%B9%B6%EF%BC%89"><span class="nav-number">6.2.</span> <span class="nav-text">2. UNION ALL（不去重合并）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E2%AD%90-UNION-vs-UNION-ALL-%E5%AF%B9%E6%AF%94"><span class="nav-number">6.3.</span> <span class="nav-text">3. ⭐ UNION vs UNION ALL 对比</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-UNION-%E4%BD%BF%E7%94%A8%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="nav-number">6.4.</span> <span class="nav-text">4. UNION 使用注意事项</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81JOIN-vs-UNION-%E5%AF%B9%E6%AF%94"><span class="nav-number">7.</span> <span class="nav-text">七、JOIN vs UNION 对比</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AB%E3%80%81%E7%BB%BC%E5%90%88%E9%80%9F%E6%9F%A5%E8%A1%A8"><span class="nav-number">8.</span> <span class="nav-text">八、综合速查表</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B9%9D%E3%80%81LeetCode-%E7%9B%B8%E5%85%B3%E7%BB%83%E4%B9%A0"><span class="nav-number">9.</span> <span class="nav-text">九、LeetCode 相关练习</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-number">10.</span> <span class="nav-text">参考资料</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Andrew Yang"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Andrew Yang</p>
+  <div class="site-description" itemprop="description">记录技术、生活与学习</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">8</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">9</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://2023andrewyang.github.io/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%A4%9A%E8%A1%A8%E8%BF%9E%E6%8E%A5%E4%B8%8E%E9%9B%86%E5%90%88%E6%9F%A5%E8%AF%A2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Andrew Yang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Andrew's Blog">
+      <meta itemprop="description" content="记录技术、生活与学习">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="SQL基础-多表连接与集合查询 | Andrew's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          SQL基础-多表连接与集合查询
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2026-02-20 14:00:00" itemprop="dateCreated datePublished" datetime="2026-02-20T14:00:00+08:00">2026-02-20</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-02-20 13:50:50" itemprop="dateModified" datetime="2026-02-20T13:50:50+08:00">2026-02-20</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%8A%80%E6%9C%AF%E6%96%87%E7%AB%A0/" itemprop="url" rel="index"><span itemprop="name">技术文章</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-break"></span>
+    <span class="post-meta-item" title="本文字数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-file-word"></i>
+      </span>
+      <span class="post-meta-item-text">本文字数：</span>
+      <span>3.8k</span>
+    </span>
+    <span class="post-meta-item" title="阅读时长">
+      <span class="post-meta-item-icon">
+        <i class="far fa-clock"></i>
+      </span>
+      <span class="post-meta-item-text">阅读时长 &asymp;</span>
+      <span>14 分钟</span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>最近在复习 SQL 的多表查询部分，发现 JOIN 的种类不少，再加上 UNION 集合操作，内容虽然不难但容易混淆，尤其是各种外连接的区别、ON 和 WHERE 在外连接中的不同表现等。所以把这些知识点整理到一起，方便对比学习和日后速查。</p>
+<hr>
+<span id="more"></span>
+
+<p>本文使用以下示例表来演示所有查询：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 部门表</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> department (</span><br><span class="line">    id <span class="type">INT</span> <span class="keyword">PRIMARY KEY</span>,</span><br><span class="line">    dept_name <span class="type">VARCHAR</span>(<span class="number">50</span>),</span><br><span class="line">    location <span class="type">VARCHAR</span>(<span class="number">50</span>)</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">INSERT INTO</span> department <span class="keyword">VALUES</span></span><br><span class="line">(<span class="number">1</span>, <span class="string">&#x27;技术部&#x27;</span>, <span class="string">&#x27;北京&#x27;</span>),</span><br><span class="line">(<span class="number">2</span>, <span class="string">&#x27;销售部&#x27;</span>, <span class="string">&#x27;上海&#x27;</span>),</span><br><span class="line">(<span class="number">3</span>, <span class="string">&#x27;人事部&#x27;</span>, <span class="string">&#x27;北京&#x27;</span>),</span><br><span class="line">(<span class="number">4</span>, <span class="string">&#x27;财务部&#x27;</span>, <span class="string">&#x27;深圳&#x27;</span>);  <span class="comment">-- 该部门没有任何员工</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 员工表</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> employee (</span><br><span class="line">    id <span class="type">INT</span> <span class="keyword">PRIMARY KEY</span>,</span><br><span class="line">    name <span class="type">VARCHAR</span>(<span class="number">50</span>),</span><br><span class="line">    dept_id <span class="type">INT</span>,</span><br><span class="line">    salary <span class="type">DECIMAL</span>(<span class="number">10</span>, <span class="number">2</span>),</span><br><span class="line">    hire_date <span class="type">DATE</span>,</span><br><span class="line">    manager_id <span class="type">INT</span></span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">INSERT INTO</span> employee <span class="keyword">VALUES</span></span><br><span class="line">(<span class="number">1</span>,  <span class="string">&#x27;张三&#x27;</span>, <span class="number">1</span>,    <span class="number">15000</span>, <span class="string">&#x27;2022-03-15&#x27;</span>, <span class="number">6</span>),</span><br><span class="line">(<span class="number">2</span>,  <span class="string">&#x27;李四&#x27;</span>, <span class="number">1</span>,    <span class="number">18000</span>, <span class="string">&#x27;2020-07-01&#x27;</span>, <span class="number">6</span>),</span><br><span class="line">(<span class="number">3</span>,  <span class="string">&#x27;王五&#x27;</span>, <span class="number">2</span>,    <span class="number">12000</span>, <span class="string">&#x27;2023-01-10&#x27;</span>, <span class="number">7</span>),</span><br><span class="line">(<span class="number">4</span>,  <span class="string">&#x27;赵六&#x27;</span>, <span class="number">2</span>,    <span class="number">9000</span>,  <span class="string">&#x27;2023-06-20&#x27;</span>, <span class="number">7</span>),</span><br><span class="line">(<span class="number">5</span>,  <span class="string">&#x27;孙七&#x27;</span>, <span class="number">3</span>,    <span class="number">11000</span>, <span class="string">&#x27;2021-09-05&#x27;</span>, <span class="keyword">NULL</span>),</span><br><span class="line">(<span class="number">6</span>,  <span class="string">&#x27;周八&#x27;</span>, <span class="number">1</span>,    <span class="number">22000</span>, <span class="string">&#x27;2019-04-12&#x27;</span>, <span class="keyword">NULL</span>),</span><br><span class="line">(<span class="number">7</span>,  <span class="string">&#x27;吴九&#x27;</span>, <span class="number">2</span>,    <span class="number">15000</span>, <span class="string">&#x27;2022-11-08&#x27;</span>, <span class="number">6</span>),</span><br><span class="line">(<span class="number">8</span>,  <span class="string">&#x27;郑十&#x27;</span>, <span class="number">3</span>,    <span class="number">13000</span>, <span class="string">&#x27;2022-05-18&#x27;</span>, <span class="number">5</span>),</span><br><span class="line">(<span class="number">9</span>,  <span class="string">&#x27;刘一&#x27;</span>, <span class="keyword">NULL</span>, <span class="number">9500</span>,  <span class="string">&#x27;2024-01-15&#x27;</span>, <span class="keyword">NULL</span>),  <span class="comment">-- 未分配部门</span></span><br><span class="line">(<span class="number">10</span>, <span class="string">&#x27;陈二&#x27;</span>, <span class="keyword">NULL</span>, <span class="number">8000</span>,  <span class="string">&#x27;2024-03-01&#x27;</span>, <span class="keyword">NULL</span>);  <span class="comment">-- 未分配部门</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 项目表</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> project (</span><br><span class="line">    id <span class="type">INT</span> <span class="keyword">PRIMARY KEY</span>,</span><br><span class="line">    project_name <span class="type">VARCHAR</span>(<span class="number">100</span>),</span><br><span class="line">    start_date <span class="type">DATE</span>,</span><br><span class="line">    budget <span class="type">DECIMAL</span>(<span class="number">12</span>, <span class="number">2</span>)</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">INSERT INTO</span> project <span class="keyword">VALUES</span></span><br><span class="line">(<span class="number">1</span>, <span class="string">&#x27;电商平台重构&#x27;</span>, <span class="string">&#x27;2024-01-01&#x27;</span>, <span class="number">500000</span>),</span><br><span class="line">(<span class="number">2</span>, <span class="string">&#x27;数据分析系统&#x27;</span>, <span class="string">&#x27;2024-03-15&#x27;</span>, <span class="number">300000</span>),</span><br><span class="line">(<span class="number">3</span>, <span class="string">&#x27;APP 开发&#x27;</span>,     <span class="string">&#x27;2024-06-01&#x27;</span>, <span class="number">200000</span>),</span><br><span class="line">(<span class="number">4</span>, <span class="string">&#x27;内部工具升级&#x27;</span>, <span class="string">&#x27;2025-01-01&#x27;</span>, <span class="number">100000</span>);  <span class="comment">-- 该项目没有分配人员</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 员工项目关联表（多对多）</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> emp_project (</span><br><span class="line">    emp_id <span class="type">INT</span>,</span><br><span class="line">    project_id <span class="type">INT</span>,</span><br><span class="line">    role <span class="type">VARCHAR</span>(<span class="number">50</span>),</span><br><span class="line">    <span class="keyword">PRIMARY KEY</span> (emp_id, project_id)</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">INSERT INTO</span> emp_project <span class="keyword">VALUES</span></span><br><span class="line">(<span class="number">1</span>, <span class="number">1</span>, <span class="string">&#x27;开发&#x27;</span>),</span><br><span class="line">(<span class="number">2</span>, <span class="number">1</span>, <span class="string">&#x27;架构师&#x27;</span>),</span><br><span class="line">(<span class="number">2</span>, <span class="number">2</span>, <span class="string">&#x27;技术负责人&#x27;</span>),</span><br><span class="line">(<span class="number">3</span>, <span class="number">3</span>, <span class="string">&#x27;销售对接&#x27;</span>),</span><br><span class="line">(<span class="number">6</span>, <span class="number">1</span>, <span class="string">&#x27;项目经理&#x27;</span>),</span><br><span class="line">(<span class="number">6</span>, <span class="number">2</span>, <span class="string">&#x27;技术顾问&#x27;</span>),</span><br><span class="line">(<span class="number">7</span>, <span class="number">3</span>, <span class="string">&#x27;销售负责人&#x27;</span>),</span><br><span class="line">(<span class="number">8</span>, <span class="number">2</span>, <span class="string">&#x27;人事协调&#x27;</span>);</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <strong>表关系说明</strong>：</p>
+<ul>
+<li><code>employee.dept_id</code> → <code>department.id</code>（多对一）</li>
+<li><code>employee.manager_id</code> → <code>employee.id</code>（自引用，用于自连接）</li>
+<li><code>employee</code> ↔ <code>project</code> 通过 <code>emp_project</code> 关联（多对多）</li>
+<li>刻意设计了一些”不匹配”的数据：员工9、10 没有部门；部门4 没有员工；项目4 没有成员——方便演示各类 JOIN。</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="一、交叉连接（CROSS-JOIN）"><a href="#一、交叉连接（CROSS-JOIN）" class="headerlink" title="一、交叉连接（CROSS JOIN）"></a>一、交叉连接（CROSS JOIN）</h2><p>交叉连接会将两张表的每一行<strong>两两组合</strong>，生成<strong>笛卡尔积</strong>，结果行数 &#x3D; 表1行数 × 表2行数。</p>
+<p><strong>基本语法</strong>：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 显式写法</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> 表<span class="number">1</span> <span class="keyword">CROSS</span> <span class="keyword">JOIN</span> 表<span class="number">2</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 隐式写法（逗号分隔，不加 WHERE 条件）</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> 表<span class="number">1</span>, 表<span class="number">2</span>;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 示例：生成所有&quot;员工 × 项目&quot;的组合</span></span><br><span class="line"><span class="keyword">SELECT</span> e.name, p.project_name</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">CROSS</span> <span class="keyword">JOIN</span> project p;</span><br><span class="line"><span class="comment">-- 结果：10 × 4 = 40 行</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>⚠️ <strong>注意</strong>：交叉连接会产生<strong>大量数据</strong>（M × N 行），实际开发中很少直接使用。如果在 <code>FROM</code> 中用逗号分隔多张表却<strong>忘记写 WHERE 条件</strong>，就会意外产生笛卡尔积，这是一个常见的性能陷阱。</p>
+</blockquote>
+<blockquote>
+<p>💡 <strong>应用场景</strong>：生成所有可能的组合（如商品 × 折扣活动）、填充维度表、配合 <code>WHERE</code> 过滤后使用。</p>
+</blockquote>
+<hr>
+<h2 id="二、⭐-内连接（INNER-JOIN）"><a href="#二、⭐-内连接（INNER-JOIN）" class="headerlink" title="二、⭐ 内连接（INNER JOIN）"></a>二、⭐ 内连接（INNER JOIN）</h2><p>内连接是最常用的连接方式，<strong>只返回两张表中满足连接条件的匹配行</strong>，不匹配的行会被丢弃。</p>
+<p><strong>基本语法</strong>：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> 列名 <span class="keyword">FROM</span> 表<span class="number">1</span></span><br><span class="line"><span class="keyword">INNER</span> <span class="keyword">JOIN</span> 表<span class="number">2</span> <span class="keyword">ON</span> 表<span class="number">1.</span>列 <span class="operator">=</span> 表<span class="number">2.</span>列;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- INNER 可以省略，JOIN 默认就是 INNER JOIN</span></span><br><span class="line"><span class="keyword">SELECT</span> 列名 <span class="keyword">FROM</span> 表<span class="number">1</span></span><br><span class="line"><span class="keyword">JOIN</span> 表<span class="number">2</span> <span class="keyword">ON</span> 表<span class="number">1.</span>列 <span class="operator">=</span> 表<span class="number">2.</span>列;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询每个员工所属的部门名称</span></span><br><span class="line"><span class="keyword">SELECT</span> e.name, e.salary, d.dept_name</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">INNER</span> <span class="keyword">JOIN</span> department d <span class="keyword">ON</span> e.dept_id <span class="operator">=</span> d.id;</span><br></pre></td></tr></table></figure>
+
+<p>结果（8 行，刘一和陈二因 dept_id 为 NULL 被排除，财务部因没有员工也不出现）：</p>
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>salary</th>
+<th>dept_name</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>张三</td>
+<td>15000</td>
+<td>技术部</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>18000</td>
+<td>技术部</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>12000</td>
+<td>销售部</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>9000</td>
+<td>销售部</td>
+</tr>
+<tr>
+<td>孙七</td>
+<td>11000</td>
+<td>人事部</td>
+</tr>
+<tr>
+<td>周八</td>
+<td>22000</td>
+<td>技术部</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>15000</td>
+<td>销售部</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>13000</td>
+<td>人事部</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>⚠️ <strong>注意</strong>：内连接只保留<strong>两边都能匹配</strong>的行。未分配部门的员工（刘一、陈二）和没有员工的部门（财务部）都<strong>不会</strong>出现在结果中。</p>
+</blockquote>
+<p><strong>隐式内连接</strong>（旧写法）：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 不推荐的旧写法，但需要能认识</span></span><br><span class="line"><span class="keyword">SELECT</span> e.name, d.dept_name</span><br><span class="line"><span class="keyword">FROM</span> employee e, department d</span><br><span class="line"><span class="keyword">WHERE</span> e.dept_id <span class="operator">=</span> d.id;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <strong>建议</strong>：始终使用 <code>JOIN ... ON</code> 的显式写法，将<strong>连接条件</strong>（ON）和<strong>过滤条件</strong>（WHERE）分开，可读性更好，也不容易漏写条件导致笛卡尔积。</p>
+</blockquote>
+<p><strong>多表连接</strong>：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询参与了项目的员工：姓名、部门、项目名、角色</span></span><br><span class="line"><span class="keyword">SELECT</span> e.name, d.dept_name, p.project_name, ep.role</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">JOIN</span> department d <span class="keyword">ON</span> e.dept_id <span class="operator">=</span> d.id</span><br><span class="line"><span class="keyword">JOIN</span> emp_project ep <span class="keyword">ON</span> e.id <span class="operator">=</span> ep.emp_id</span><br><span class="line"><span class="keyword">JOIN</span> project p <span class="keyword">ON</span> ep.project_id <span class="operator">=</span> p.id;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>dept_name</th>
+<th>project_name</th>
+<th>role</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>张三</td>
+<td>技术部</td>
+<td>电商平台重构</td>
+<td>开发</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>技术部</td>
+<td>电商平台重构</td>
+<td>架构师</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>技术部</td>
+<td>数据分析系统</td>
+<td>技术负责人</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>销售部</td>
+<td>APP 开发</td>
+<td>销售对接</td>
+</tr>
+<tr>
+<td>周八</td>
+<td>技术部</td>
+<td>电商平台重构</td>
+<td>项目经理</td>
+</tr>
+<tr>
+<td>周八</td>
+<td>技术部</td>
+<td>数据分析系统</td>
+<td>技术顾问</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>销售部</td>
+<td>APP 开发</td>
+<td>销售负责人</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>人事部</td>
+<td>数据分析系统</td>
+<td>人事协调</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>补充</strong>：多表连接时，JOIN 的书写顺序通常不影响最终结果（优化器会自动选择最优执行顺序），但建议按<strong>逻辑关系</strong>书写，方便阅读和维护。</p>
+</blockquote>
+<hr>
+<h2 id="三、⭐-外连接（OUTER-JOIN）"><a href="#三、⭐-外连接（OUTER-JOIN）" class="headerlink" title="三、⭐ 外连接（OUTER JOIN）"></a>三、⭐ 外连接（OUTER JOIN）</h2><p>外连接可以保留<strong>某一侧</strong>或<strong>两侧</strong>表中不匹配的行，不匹配的部分用 <code>NULL</code> 填充。</p>
+<h3 id="1-左外连接（LEFT-JOIN）"><a href="#1-左外连接（LEFT-JOIN）" class="headerlink" title="1. 左外连接（LEFT JOIN）"></a>1. 左外连接（LEFT JOIN）</h3><p>保留<strong>左表</strong>的所有行，右表无匹配时填充 NULL。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> 列名 <span class="keyword">FROM</span> 表<span class="number">1</span></span><br><span class="line"><span class="keyword">LEFT</span> [<span class="keyword">OUTER</span>] <span class="keyword">JOIN</span> 表<span class="number">2</span> <span class="keyword">ON</span> 连接条件;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询所有员工及其部门（包括未分配部门的员工）</span></span><br><span class="line"><span class="keyword">SELECT</span> e.name, e.salary, d.dept_name</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">LEFT</span> <span class="keyword">JOIN</span> department d <span class="keyword">ON</span> e.dept_id <span class="operator">=</span> d.id;</span><br></pre></td></tr></table></figure>
+
+<p>结果（10 行，刘一和陈二的部门显示为 NULL）：</p>
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>salary</th>
+<th>dept_name</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>张三</td>
+<td>15000</td>
+<td>技术部</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>18000</td>
+<td>技术部</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>12000</td>
+<td>销售部</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>9000</td>
+<td>销售部</td>
+</tr>
+<tr>
+<td>孙七</td>
+<td>11000</td>
+<td>人事部</td>
+</tr>
+<tr>
+<td>周八</td>
+<td>22000</td>
+<td>技术部</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>15000</td>
+<td>销售部</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>13000</td>
+<td>人事部</td>
+</tr>
+<tr>
+<td>刘一</td>
+<td>9500</td>
+<td>NULL</td>
+</tr>
+<tr>
+<td>陈二</td>
+<td>8000</td>
+<td>NULL</td>
+</tr>
+</tbody></table>
+<p><strong>⭐ 经典用法：查找”没有匹配”的记录</strong>：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查找未分配部门的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> e.name</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">LEFT</span> <span class="keyword">JOIN</span> department d <span class="keyword">ON</span> e.dept_id <span class="operator">=</span> d.id</span><br><span class="line"><span class="keyword">WHERE</span> d.id <span class="keyword">IS</span> <span class="keyword">NULL</span>;</span><br><span class="line"><span class="comment">-- 输出: 刘一、陈二</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <strong>实用技巧</strong>：<code>LEFT JOIN + WHERE 右表.主键 IS NULL</code> 是查找”左表有、右表无”记录的经典模式，在数据完整性检查中非常常用。</p>
+</blockquote>
+<h3 id="2-右外连接（RIGHT-JOIN）"><a href="#2-右外连接（RIGHT-JOIN）" class="headerlink" title="2. 右外连接（RIGHT JOIN）"></a>2. 右外连接（RIGHT JOIN）</h3><p>保留<strong>右表</strong>的所有行，左表无匹配时填充 NULL。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> 列名 <span class="keyword">FROM</span> 表<span class="number">1</span></span><br><span class="line"><span class="keyword">RIGHT</span> [<span class="keyword">OUTER</span>] <span class="keyword">JOIN</span> 表<span class="number">2</span> <span class="keyword">ON</span> 连接条件;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询所有部门及其员工（包括没有员工的部门）</span></span><br><span class="line"><span class="keyword">SELECT</span> d.dept_name, d.location, e.name</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">RIGHT</span> <span class="keyword">JOIN</span> department d <span class="keyword">ON</span> e.dept_id <span class="operator">=</span> d.id;</span><br></pre></td></tr></table></figure>
+
+<p>结果（9 行，财务部出现但没有员工）：</p>
+<table>
+<thead>
+<tr>
+<th>dept_name</th>
+<th>location</th>
+<th>name</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>技术部</td>
+<td>北京</td>
+<td>张三</td>
+</tr>
+<tr>
+<td>技术部</td>
+<td>北京</td>
+<td>李四</td>
+</tr>
+<tr>
+<td>技术部</td>
+<td>北京</td>
+<td>周八</td>
+</tr>
+<tr>
+<td>销售部</td>
+<td>上海</td>
+<td>王五</td>
+</tr>
+<tr>
+<td>销售部</td>
+<td>上海</td>
+<td>赵六</td>
+</tr>
+<tr>
+<td>销售部</td>
+<td>上海</td>
+<td>吴九</td>
+</tr>
+<tr>
+<td>人事部</td>
+<td>北京</td>
+<td>孙七</td>
+</tr>
+<tr>
+<td>人事部</td>
+<td>北京</td>
+<td>郑十</td>
+</tr>
+<tr>
+<td>财务部</td>
+<td>深圳</td>
+<td>NULL</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>补充</strong>：<code>RIGHT JOIN</code> 可以通过<strong>交换表的顺序</strong>改写为 <code>LEFT JOIN</code>，两者本质相同。实际开发中 <strong><code>LEFT JOIN</code> 更常用</strong>，建议统一使用 LEFT JOIN，保持代码风格一致。</p>
+</blockquote>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 上面的 RIGHT JOIN 等价于：</span></span><br><span class="line"><span class="keyword">SELECT</span> d.dept_name, d.location, e.name</span><br><span class="line"><span class="keyword">FROM</span> department d</span><br><span class="line"><span class="keyword">LEFT</span> <span class="keyword">JOIN</span> employee e <span class="keyword">ON</span> e.dept_id <span class="operator">=</span> d.id;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-全外连接（FULL-OUTER-JOIN）"><a href="#3-全外连接（FULL-OUTER-JOIN）" class="headerlink" title="3. 全外连接（FULL OUTER JOIN）"></a>3. 全外连接（FULL OUTER JOIN）</h3><p>保留<strong>两侧</strong>表的所有行，不匹配的部分用 NULL 填充。</p>
+<blockquote>
+<p>⚠️ <strong>注意</strong>：<strong>MySQL 不支持</strong> <code>FULL OUTER JOIN</code> 语法！需要通过 <code>LEFT JOIN</code> + <code>UNION ALL</code> + <code>RIGHT JOIN</code> 来模拟。</p>
+</blockquote>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- MySQL 模拟全外连接</span></span><br><span class="line"><span class="comment">-- 第一部分：LEFT JOIN 获取所有员工（含无部门的）</span></span><br><span class="line"><span class="keyword">SELECT</span> e.name, d.dept_name</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">LEFT</span> <span class="keyword">JOIN</span> department d <span class="keyword">ON</span> e.dept_id <span class="operator">=</span> d.id</span><br><span class="line"></span><br><span class="line"><span class="keyword">UNION</span> <span class="keyword">ALL</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 第二部分：RIGHT JOIN 获取&quot;仅右表有&quot;的记录（无员工的部门）</span></span><br><span class="line"><span class="keyword">SELECT</span> e.name, d.dept_name</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">RIGHT</span> <span class="keyword">JOIN</span> department d <span class="keyword">ON</span> e.dept_id <span class="operator">=</span> d.id</span><br><span class="line"><span class="keyword">WHERE</span> e.id <span class="keyword">IS</span> <span class="keyword">NULL</span>;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <strong>为什么用 <code>UNION ALL</code> 而不是 <code>UNION</code>？</strong> 因为第一部分（LEFT JOIN）已经包含了所有左表行和匹配的右表行，第二部分只取右表独有的行（<code>WHERE e.id IS NULL</code>），两部分不会重复，用 <code>UNION ALL</code> 避免了不必要的去重排序，性能更好。</p>
+</blockquote>
+<h3 id="4-⭐-外连接中-ON-和-WHERE-的区别"><a href="#4-⭐-外连接中-ON-和-WHERE-的区别" class="headerlink" title="4. ⭐ 外连接中 ON 和 WHERE 的区别"></a>4. ⭐ 外连接中 ON 和 WHERE 的区别</h3><p>这是一个<strong>非常容易踩坑</strong>的地方。在外连接中，条件放在 <code>ON</code> 和 <code>WHERE</code> 中的效果完全不同：</p>
+<ul>
+<li><strong><code>ON</code> 中的条件</strong>：用于判断<strong>连接匹配</strong>，不匹配的行仍然保留（填 NULL）</li>
+<li><strong><code>WHERE</code> 中的条件</strong>：在连接<strong>之后</strong>过滤，会剔除不满足条件的行（包括 NULL 行）</li>
+</ul>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- ❌ 错误理解：想要&quot;所有员工 + 只显示技术部的部门名&quot;</span></span><br><span class="line"><span class="keyword">SELECT</span> e.name, d.dept_name</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">LEFT</span> <span class="keyword">JOIN</span> department d <span class="keyword">ON</span> e.dept_id <span class="operator">=</span> d.id</span><br><span class="line"><span class="keyword">WHERE</span> d.dept_name <span class="operator">=</span> <span class="string">&#x27;技术部&#x27;</span>;</span><br><span class="line"><span class="comment">-- 实际结果：只有技术部的 3 个员工！LEFT JOIN 完全失去了意义</span></span><br><span class="line"><span class="comment">-- 因为 WHERE 在连接之后过滤，非技术部的行（包括 NULL）都被剔除了</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- ✅ 正确写法：把过滤条件放在 ON 中</span></span><br><span class="line"><span class="keyword">SELECT</span> e.name, d.dept_name</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">LEFT</span> <span class="keyword">JOIN</span> department d <span class="keyword">ON</span> e.dept_id <span class="operator">=</span> d.id <span class="keyword">AND</span> d.dept_name <span class="operator">=</span> <span class="string">&#x27;技术部&#x27;</span>;</span><br><span class="line"><span class="comment">-- 结果：所有 10 个员工都出现，技术部员工显示部门名，其余显示 NULL</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>⚠️ <strong>记忆口诀</strong>：内连接中 ON 和 WHERE 效果一样；<strong>外连接中，想保留行就放 ON，想剔除行就放 WHERE</strong>。</p>
+</blockquote>
+<hr>
+<h2 id="四、自连接（SELF-JOIN）"><a href="#四、自连接（SELF-JOIN）" class="headerlink" title="四、自连接（SELF JOIN）"></a>四、自连接（SELF JOIN）</h2><p>自连接是指<strong>同一张表与自身进行连接</strong>，通过不同的<strong>别名</strong>来区分两个”实例”。常用于处理表中存在层级关系或需要行与行之间比较的场景。</p>
+<p><strong>基本语法</strong>：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> a.列, b.列</span><br><span class="line"><span class="keyword">FROM</span> 表 a</span><br><span class="line"><span class="keyword">JOIN</span> 表 b <span class="keyword">ON</span> a.某列 <span class="operator">=</span> b.某列;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询每个员工及其直属上级的名字</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    e.name <span class="keyword">AS</span> employee_name,</span><br><span class="line">    m.name <span class="keyword">AS</span> manager_name</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">LEFT</span> <span class="keyword">JOIN</span> employee m <span class="keyword">ON</span> e.manager_id <span class="operator">=</span> m.id;</span><br></pre></td></tr></table></figure>
+
+<p>结果：</p>
+<table>
+<thead>
+<tr>
+<th>employee_name</th>
+<th>manager_name</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>张三</td>
+<td>周八</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>周八</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>吴九</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>吴九</td>
+</tr>
+<tr>
+<td>孙七</td>
+<td>NULL</td>
+</tr>
+<tr>
+<td>周八</td>
+<td>NULL</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>周八</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>孙七</td>
+</tr>
+<tr>
+<td>刘一</td>
+<td>NULL</td>
+</tr>
+<tr>
+<td>陈二</td>
+<td>NULL</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>⚠️ <strong>注意</strong>：自连接<strong>必须</strong>使用别名（如 <code>e</code> 和 <code>m</code>），否则 SQL 无法区分是哪个”实例”的列。这里用 <code>LEFT JOIN</code> 是为了让没有上级的员工（如周八、孙七）也出现在结果中。</p>
+</blockquote>
+<p><strong>更多自连接场景</strong>：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查找同一部门中工资更高的员工对</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    a.name <span class="keyword">AS</span> high_salary_emp,</span><br><span class="line">    b.name <span class="keyword">AS</span> low_salary_emp,</span><br><span class="line">    a.salary,</span><br><span class="line">    a.dept_id</span><br><span class="line"><span class="keyword">FROM</span> employee a</span><br><span class="line"><span class="keyword">JOIN</span> employee b <span class="keyword">ON</span> a.dept_id <span class="operator">=</span> b.dept_id</span><br><span class="line">                <span class="keyword">AND</span> a.salary <span class="operator">&gt;</span> b.salary</span><br><span class="line">                <span class="keyword">AND</span> a.id <span class="operator">!=</span> b.id;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <strong>自连接的应用场景</strong>：</p>
+<ul>
+<li>查询<strong>层级关系</strong>（员工 → 上级、类别 → 父类别）</li>
+<li>同一表中<strong>行与行之间的比较</strong>（如找同部门工资更高的人）</li>
+<li><strong>连续日期&#x2F;序号</strong>的记录比较（如找连续登录的用户）</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="五、JOIN-连接类型对比总结"><a href="#五、JOIN-连接类型对比总结" class="headerlink" title="五、JOIN 连接类型对比总结"></a>五、JOIN 连接类型对比总结</h2><table>
+<thead>
+<tr>
+<th>连接类型</th>
+<th>关键字</th>
+<th>返回结果</th>
+<th>典型场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>交叉连接</td>
+<td><code>CROSS JOIN</code></td>
+<td>所有行的笛卡尔积（M × N）</td>
+<td>生成组合、测试数据</td>
+</tr>
+<tr>
+<td>内连接</td>
+<td><code>[INNER] JOIN</code></td>
+<td>仅两边都匹配的行</td>
+<td>关联查询（<strong>最常用</strong>）</td>
+</tr>
+<tr>
+<td>左外连接</td>
+<td><code>LEFT [OUTER] JOIN</code></td>
+<td>左表全部 + 右表匹配</td>
+<td>保留主表所有记录</td>
+</tr>
+<tr>
+<td>右外连接</td>
+<td><code>RIGHT [OUTER] JOIN</code></td>
+<td>右表全部 + 左表匹配</td>
+<td>同 LEFT JOIN（换方向）</td>
+</tr>
+<tr>
+<td>全外连接</td>
+<td><code>FULL [OUTER] JOIN</code></td>
+<td>两表全部行</td>
+<td>MySQL 需用 UNION 模拟</td>
+</tr>
+<tr>
+<td>自连接</td>
+<td>同表 <code>JOIN</code> 自身 + 别名</td>
+<td>取决于使用的 JOIN 类型</td>
+<td>层级关系、行间比较</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>⭐ <strong>核心理解</strong>：</p>
+<ul>
+<li><code>INNER JOIN</code> → 取<strong>交集</strong>（两边都有才返回）</li>
+<li><code>LEFT JOIN</code> → 左表<strong>全集</strong> + 右表匹配部分</li>
+<li><code>RIGHT JOIN</code> → 右表<strong>全集</strong> + 左表匹配部分</li>
+<li><code>FULL JOIN</code> → 两表<strong>并集</strong>（MySQL 不直接支持）</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="六、⭐-UNION-集合操作"><a href="#六、⭐-UNION-集合操作" class="headerlink" title="六、⭐ UNION 集合操作"></a>六、⭐ UNION 集合操作</h2><p><code>UNION</code> 用于将多个 <code>SELECT</code> 语句的结果<strong>纵向合并</strong>（上下拼接）。与 JOIN 的”横向拼接”不同，UNION 是把多个查询的结果<strong>堆叠在一起</strong>。</p>
+<h3 id="1-UNION（去重合并）"><a href="#1-UNION（去重合并）" class="headerlink" title="1. UNION（去重合并）"></a>1. <code>UNION</code>（去重合并）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> 列 <span class="keyword">FROM</span> 表<span class="number">1</span> <span class="keyword">WHERE</span> 条件<span class="number">1</span></span><br><span class="line"><span class="keyword">UNION</span></span><br><span class="line"><span class="keyword">SELECT</span> 列 <span class="keyword">FROM</span> 表<span class="number">2</span> <span class="keyword">WHERE</span> 条件<span class="number">2</span>;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 合并两个查询结果：高薪员工 和 技术部员工（有重叠）</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> salary <span class="operator">&gt;</span> <span class="number">15000</span></span><br><span class="line"><span class="keyword">UNION</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> dept_id <span class="operator">=</span> <span class="number">1</span>;</span><br></pre></td></tr></table></figure>
+
+<p>结果（李四、周八同时满足两个条件，但 UNION 自动去重，只出现一次）：</p>
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>salary</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>李四</td>
+<td>18000</td>
+</tr>
+<tr>
+<td>周八</td>
+<td>22000</td>
+</tr>
+<tr>
+<td>张三</td>
+<td>15000</td>
+</tr>
+</tbody></table>
+<h3 id="2-UNION-ALL（不去重合并）"><a href="#2-UNION-ALL（不去重合并）" class="headerlink" title="2. UNION ALL（不去重合并）"></a>2. <code>UNION ALL</code>（不去重合并）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> 列 <span class="keyword">FROM</span> 表<span class="number">1</span> <span class="keyword">WHERE</span> 条件<span class="number">1</span></span><br><span class="line"><span class="keyword">UNION</span> <span class="keyword">ALL</span></span><br><span class="line"><span class="keyword">SELECT</span> 列 <span class="keyword">FROM</span> 表<span class="number">2</span> <span class="keyword">WHERE</span> 条件<span class="number">2</span>;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 同样的查询，但不去重</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> salary <span class="operator">&gt;</span> <span class="number">15000</span></span><br><span class="line"><span class="keyword">UNION</span> <span class="keyword">ALL</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> dept_id <span class="operator">=</span> <span class="number">1</span>;</span><br></pre></td></tr></table></figure>
+
+<p>结果（李四、周八各出现 2 次）：</p>
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>salary</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>李四</td>
+<td>18000</td>
+</tr>
+<tr>
+<td>周八</td>
+<td>22000</td>
+</tr>
+<tr>
+<td>张三</td>
+<td>15000</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>18000</td>
+</tr>
+<tr>
+<td>周八</td>
+<td>22000</td>
+</tr>
+</tbody></table>
+<h3 id="3-⭐-UNION-vs-UNION-ALL-对比"><a href="#3-⭐-UNION-vs-UNION-ALL-对比" class="headerlink" title="3. ⭐ UNION vs UNION ALL 对比"></a>3. ⭐ <code>UNION</code> vs <code>UNION ALL</code> 对比</h3><table>
+<thead>
+<tr>
+<th>对比维度</th>
+<th>UNION</th>
+<th>UNION ALL</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>是否去重</strong></td>
+<td>✅ 自动去除重复行</td>
+<td>❌ 保留所有行（含重复）</td>
+</tr>
+<tr>
+<td><strong>性能</strong></td>
+<td>较慢（需要额外的排序去重操作）</td>
+<td>较快（直接拼接）</td>
+</tr>
+<tr>
+<td><strong>使用场景</strong></td>
+<td>需要去重的合并</td>
+<td>确定无重复，或不需要去重</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>性能建议</strong>：如果确定两个查询的结果<strong>不会重复</strong>（比如从不同的表查询），或者<strong>允许重复</strong>，优先使用 <code>UNION ALL</code>，性能更好。</p>
+</blockquote>
+<h3 id="4-UNION-使用注意事项"><a href="#4-UNION-使用注意事项" class="headerlink" title="4. UNION 使用注意事项"></a>4. UNION 使用注意事项</h3><blockquote>
+<p>⚠️ <strong>注意事项</strong>：</p>
+<ul>
+<li>所有 <code>SELECT</code> 的<strong>列数必须相同</strong>，且对应列的数据类型要兼容</li>
+<li>结果集的<strong>列名取自第一个</strong> <code>SELECT</code></li>
+<li><code>ORDER BY</code> 只能放在<strong>最后</strong>，对<strong>整个合并结果</strong>排序</li>
+<li>单独的 <code>SELECT</code> 中使用 <code>ORDER BY</code> 需要配合 <code>LIMIT</code> 才有意义（否则优化器可能忽略）</li>
+</ul>
+</blockquote>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- ❌ 错误：两个 SELECT 列数不一致</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> dept_id <span class="operator">=</span> <span class="number">1</span></span><br><span class="line"><span class="keyword">UNION</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> dept_id <span class="operator">=</span> <span class="number">2</span>;</span><br><span class="line"><span class="comment">-- 报错！列数不匹配</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- ✅ 正确：列数一致</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> dept_id <span class="operator">=</span> <span class="number">1</span></span><br><span class="line"><span class="keyword">UNION</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> dept_id <span class="operator">=</span> <span class="number">2</span>;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- ORDER BY 放在最后，对合并结果统一排序</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> dept_id <span class="operator">=</span> <span class="number">1</span></span><br><span class="line"><span class="keyword">UNION</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> dept_id <span class="operator">=</span> <span class="number">2</span></span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span>;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 各 SELECT 中使用 ORDER BY 需配合 LIMIT（取各部门工资前2名再合并）</span></span><br><span class="line">(<span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> dept_id <span class="operator">=</span> <span class="number">1</span> <span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span> LIMIT <span class="number">2</span>)</span><br><span class="line"><span class="keyword">UNION</span> <span class="keyword">ALL</span></span><br><span class="line">(<span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> dept_id <span class="operator">=</span> <span class="number">2</span> <span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span> LIMIT <span class="number">2</span>);</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <strong>补充</strong>：MySQL 8.0.31+ 开始支持 <code>INTERSECT</code>（交集）和 <code>EXCEPT</code>（差集）操作：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 同时满足两个条件的员工（交集）</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> salary <span class="operator">&gt;</span> <span class="number">15000</span></span><br><span class="line"><span class="keyword">INTERSECT</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> dept_id <span class="operator">=</span> <span class="number">1</span>;</span><br><span class="line"><span class="comment">-- 输出: 李四、周八</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 在技术部但工资不超过 15000 的员工（差集）</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> dept_id <span class="operator">=</span> <span class="number">1</span></span><br><span class="line"><span class="keyword">EXCEPT</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> salary <span class="operator">&gt;</span> <span class="number">15000</span>;</span><br><span class="line"><span class="comment">-- 输出: 张三</span></span><br></pre></td></tr></table></figure>
+</blockquote>
+<hr>
+<h2 id="七、JOIN-vs-UNION-对比"><a href="#七、JOIN-vs-UNION-对比" class="headerlink" title="七、JOIN vs UNION 对比"></a>七、JOIN vs UNION 对比</h2><table>
+<thead>
+<tr>
+<th>对比维度</th>
+<th>JOIN</th>
+<th>UNION</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>合并方向</strong></td>
+<td>横向拼接（增加列）</td>
+<td>纵向拼接（增加行）</td>
+</tr>
+<tr>
+<td><strong>表关系</strong></td>
+<td>通过关联条件连接不同表的列</td>
+<td>将多个查询结果上下堆叠</td>
+</tr>
+<tr>
+<td><strong>列要求</strong></td>
+<td>各表列数可以不同</td>
+<td>各 SELECT 列数必须相同</td>
+</tr>
+<tr>
+<td><strong>典型场景</strong></td>
+<td>关联查询不同表的字段</td>
+<td>合并同结构的查询结果</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="八、综合速查表"><a href="#八、综合速查表" class="headerlink" title="八、综合速查表"></a>八、综合速查表</h2><table>
+<thead>
+<tr>
+<th>需求</th>
+<th>语法</th>
+<th>要点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>笛卡尔积</td>
+<td><code>CROSS JOIN</code></td>
+<td>M × N 行，慎用</td>
+</tr>
+<tr>
+<td>关联查询（仅匹配行）</td>
+<td><code>[INNER] JOIN ... ON</code></td>
+<td>最常用的连接方式</td>
+</tr>
+<tr>
+<td>保留左表全部</td>
+<td><code>LEFT JOIN ... ON</code></td>
+<td>右表无匹配填 NULL</td>
+</tr>
+<tr>
+<td>保留右表全部</td>
+<td><code>RIGHT JOIN ... ON</code></td>
+<td>可改写为 LEFT JOIN</td>
+</tr>
+<tr>
+<td>保留两边全部</td>
+<td><code>LEFT JOIN</code> + <code>UNION ALL</code> + <code>RIGHT JOIN</code></td>
+<td>MySQL 不支持 FULL JOIN</td>
+</tr>
+<tr>
+<td>自身关联</td>
+<td>同表 <code>JOIN</code> + 别名</td>
+<td>层级关系 &#x2F; 行间比较</td>
+</tr>
+<tr>
+<td>纵向合并（去重）</td>
+<td><code>UNION</code></td>
+<td>列数和类型须一致</td>
+</tr>
+<tr>
+<td>纵向合并（不去重）</td>
+<td><code>UNION ALL</code></td>
+<td>性能更好，优先考虑</td>
+</tr>
+<tr>
+<td>查”左有右无”</td>
+<td><code>LEFT JOIN ... WHERE 右表.pk IS NULL</code></td>
+<td>数据完整性检查</td>
+</tr>
+<tr>
+<td>外连接保留行的过滤</td>
+<td>条件放 <code>ON</code> 中</td>
+<td>放 <code>WHERE</code> 会剔除 NULL 行</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="九、LeetCode-相关练习"><a href="#九、LeetCode-相关练习" class="headerlink" title="九、LeetCode 相关练习"></a>九、LeetCode 相关练习</h2><!-- 在此添加相关 LeetCode 题目链接 -->
+
+<blockquote>
+<p>🔗 后续待补充..</p>
+</blockquote>
+<hr>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><blockquote>
+<p>📚 本文内容参考以下资料整理：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.codefather.cn/course/1952312567451275265/section/1952312567975563265">编程导航 - 第 6 章：多表查询</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.codefather.cn/course/1952312567451275265/section/1952312568025894913">编程导航 - 第 7 章：合并查询</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.codefather.cn/course/1952312567451275265/section/1952312568080420866">编程导航 - 第 8 章：子查询</a></li>
+</ul>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer"><script src="https://giscus.app/client.js"
+        data-repo="2023Andrewyang/2023Andrewyang.github.io"
+        data-repo-id="R_kgDORLUYLQ"
+        data-category="General"
+        data-category-id="DIC_kwDORLUYLc4C2JUx"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="preferred_color_scheme"
+        data-lang="zh-CN"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+
+
+          <div class="post-tags">
+              <a href="/tags/SQL/" rel="tag"># SQL</a>
+              <a href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag"># 数据库</a>
+              <a href="/tags/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" rel="tag"># 学习笔记</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%BC%80%E7%AA%97%E5%87%BD%E6%95%B0/" rel="prev" title="SQL基础-开窗函数">
+                  <i class="fa fa-angle-left"></i> SQL基础-开窗函数
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%AD%90%E6%9F%A5%E8%AF%A2%E4%B8%8ECTE/" rel="next" title="SQL基础-子查询与CTE">
+                  SQL基础-子查询与CTE <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">Andrew Yang</span>
+  </div>
+<div class="wordcount">
+  <span class="post-meta-item">
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-line"></i>
+    </span>
+    <span title="站点总字数">28k</span>
+  </span>
+  <span class="post-meta-item">
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">1:41</span>
+  </span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+</body>
+</html>

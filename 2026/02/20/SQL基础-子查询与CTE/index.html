@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" integrity="sha256-VHqXKFhhMxcpubYf9xiWdCiojEbY9NexQ4jh8AxbvcM=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"2023andrewyang.github.io","root":"/","images":"/images","scheme":"Gemini","darkmode":true,"version":"8.27.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"default","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":true,"style":"mac"},"fold":{"enable":false,"height":500},"language":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="继上一篇整理了 JOIN 和 UNION 之后，这篇笔记接着复习子查询（Subquery）和 CTE（公用表表达式）。子查询是 SQL 中非常灵活的工具，而 CTE 可以看作子查询的”升级版”，能让复杂查询的可读性大幅提升。两者经常搭配 JOIN、UNION 一起使用，是编写复杂查询的核心技能。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SQL基础-子查询与CTE">
+<meta property="og:url" content="https://2023andrewyang.github.io/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%AD%90%E6%9F%A5%E8%AF%A2%E4%B8%8ECTE/index.html">
+<meta property="og:site_name" content="Andrew&#39;s Blog">
+<meta property="og:description" content="继上一篇整理了 JOIN 和 UNION 之后，这篇笔记接着复习子查询（Subquery）和 CTE（公用表表达式）。子查询是 SQL 中非常灵活的工具，而 CTE 可以看作子查询的”升级版”，能让复杂查询的可读性大幅提升。两者经常搭配 JOIN、UNION 一起使用，是编写复杂查询的核心技能。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-02-20T06:30:00.000Z">
+<meta property="article:modified_time" content="2026-02-20T05:50:50.000Z">
+<meta property="article:author" content="Andrew Yang">
+<meta property="article:tag" content="SQL">
+<meta property="article:tag" content="数据库">
+<meta property="article:tag" content="学习笔记">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://2023andrewyang.github.io/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%AD%90%E6%9F%A5%E8%AF%A2%E4%B8%8ECTE/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://2023andrewyang.github.io/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%AD%90%E6%9F%A5%E8%AF%A2%E4%B8%8ECTE/","path":"2026/02/20/SQL基础-子查询与CTE/","title":"SQL基础-子查询与CTE"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>SQL基础-子查询与CTE | Andrew's Blog</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/motion.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Andrew's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E5%AD%90%E6%9F%A5%E8%AF%A2%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">一、子查询概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E6%8C%89%E8%BF%94%E5%9B%9E%E7%BB%93%E6%9E%9C%E5%88%86%E7%B1%BB"><span class="nav-number">2.</span> <span class="nav-text">二、按返回结果分类</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E6%A0%87%E9%87%8F%E5%AD%90%E6%9F%A5%E8%AF%A2%EF%BC%88%E8%BF%94%E5%9B%9E%E5%8D%95%E4%B8%AA%E5%80%BC%EF%BC%89"><span class="nav-number">2.1.</span> <span class="nav-text">1. 标量子查询（返回单个值）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E5%88%97%E5%AD%90%E6%9F%A5%E8%AF%A2%EF%BC%88%E8%BF%94%E5%9B%9E%E4%B8%80%E5%88%97%E5%A4%9A%E8%A1%8C%EF%BC%89"><span class="nav-number">2.2.</span> <span class="nav-text">2. 列子查询（返回一列多行）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E8%A1%8C%E5%AD%90%E6%9F%A5%E8%AF%A2%EF%BC%88%E8%BF%94%E5%9B%9E%E4%B8%80%E8%A1%8C%E5%A4%9A%E5%88%97%EF%BC%89"><span class="nav-number">2.3.</span> <span class="nav-text">3. 行子查询（返回一行多列）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-%E8%A1%A8%E5%AD%90%E6%9F%A5%E8%AF%A2%EF%BC%88%E6%B4%BE%E7%94%9F%E8%A1%A8-Derived-Table%EF%BC%89"><span class="nav-number">2.4.</span> <span class="nav-text">4. 表子查询（派生表 &#x2F; Derived Table）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E2%AD%90-%E6%8C%89%E5%85%B3%E8%81%94%E6%80%A7%E5%88%86%E7%B1%BB"><span class="nav-number">3.</span> <span class="nav-text">三、⭐ 按关联性分类</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E9%9D%9E%E5%85%B3%E8%81%94%E5%AD%90%E6%9F%A5%E8%AF%A2%EF%BC%88%E7%8B%AC%E7%AB%8B%E5%AD%90%E6%9F%A5%E8%AF%A2%EF%BC%89"><span class="nav-number">3.1.</span> <span class="nav-text">1. 非关联子查询（独立子查询）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E2%AD%90-%E5%85%B3%E8%81%94%E5%AD%90%E6%9F%A5%E8%AF%A2%EF%BC%88%E7%9B%B8%E5%85%B3%E5%AD%90%E6%9F%A5%E8%AF%A2%EF%BC%89"><span class="nav-number">3.2.</span> <span class="nav-text">2. ⭐ 关联子查询（相关子查询）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E2%AD%90-%E5%AD%90%E6%9F%A5%E8%AF%A2%E5%B8%B8%E7%94%A8%E5%85%B3%E9%94%AE%E5%AD%97"><span class="nav-number">4.</span> <span class="nav-text">四、⭐ 子查询常用关键字</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-IN-NOT-IN"><span class="nav-number">4.1.</span> <span class="nav-text">1. IN &#x2F; NOT IN</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E2%AD%90-EXISTS-NOT-EXISTS"><span class="nav-number">4.2.</span> <span class="nav-text">2. ⭐ EXISTS &#x2F; NOT EXISTS</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-ANY-SOME-ALL"><span class="nav-number">4.3.</span> <span class="nav-text">3. ANY &#x2F; SOME &#x2F; ALL</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-%E2%AD%90-IN-vs-EXISTS-%E5%AF%B9%E6%AF%94"><span class="nav-number">4.4.</span> <span class="nav-text">4. ⭐ IN vs EXISTS 对比</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E5%AD%90%E6%9F%A5%E8%AF%A2%E7%9A%84%E4%BD%BF%E7%94%A8%E4%BD%8D%E7%BD%AE"><span class="nav-number">5.</span> <span class="nav-text">五、子查询的使用位置</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-WHERE-%E5%AD%90%E5%8F%A5%E4%B8%AD%EF%BC%88%E6%9C%80%E5%B8%B8%E8%A7%81%EF%BC%89"><span class="nav-number">5.1.</span> <span class="nav-text">1. WHERE 子句中（最常见）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-FROM-%E5%AD%90%E5%8F%A5%E4%B8%AD%EF%BC%88%E6%B4%BE%E7%94%9F%E8%A1%A8%EF%BC%89"><span class="nav-number">5.2.</span> <span class="nav-text">2. FROM 子句中（派生表）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-SELECT-%E5%AD%90%E5%8F%A5%E4%B8%AD%EF%BC%88%E6%A0%87%E9%87%8F%E5%AD%90%E6%9F%A5%E8%AF%A2%EF%BC%89"><span class="nav-number">5.3.</span> <span class="nav-text">3. SELECT 子句中（标量子查询）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-HAVING-%E5%AD%90%E5%8F%A5%E4%B8%AD"><span class="nav-number">5.4.</span> <span class="nav-text">4. HAVING 子句中</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E2%AD%90-CTE-%E5%85%AC%E7%94%A8%E8%A1%A8%E8%A1%A8%E8%BE%BE%E5%BC%8F%EF%BC%88WITH-%E8%AF%AD%E6%B3%95%EF%BC%89"><span class="nav-number">6.</span> <span class="nav-text">六、⭐ CTE 公用表表达式（WITH 语法）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E5%9F%BA%E7%A1%80-CTE-%E8%AF%AD%E6%B3%95"><span class="nav-number">6.1.</span> <span class="nav-text">1. 基础 CTE 语法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E5%A4%9A%E4%B8%AA-CTE"><span class="nav-number">6.2.</span> <span class="nav-text">2. 多个 CTE</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E2%AD%90-%E9%80%92%E5%BD%92-CTE%EF%BC%88WITH-RECURSIVE%EF%BC%89"><span class="nav-number">6.3.</span> <span class="nav-text">3. ⭐ 递归 CTE（WITH RECURSIVE）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-%E2%AD%90-CTE-vs-%E5%AD%90%E6%9F%A5%E8%AF%A2-%E5%AF%B9%E6%AF%94"><span class="nav-number">6.4.</span> <span class="nav-text">4. ⭐ CTE vs 子查询 对比</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81%E5%AD%90%E6%9F%A5%E8%AF%A2-vs-JOIN-%E6%94%B9%E5%86%99"><span class="nav-number">7.</span> <span class="nav-text">七、子查询 vs JOIN 改写</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AB%E3%80%81%E7%BB%BC%E5%90%88%E9%80%9F%E6%9F%A5%E8%A1%A8"><span class="nav-number">8.</span> <span class="nav-text">八、综合速查表</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B9%9D%E3%80%81LeetCode-%E7%9B%B8%E5%85%B3%E7%BB%83%E4%B9%A0"><span class="nav-number">9.</span> <span class="nav-text">九、LeetCode 相关练习</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-number">10.</span> <span class="nav-text">参考资料</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Andrew Yang"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Andrew Yang</p>
+  <div class="site-description" itemprop="description">记录技术、生活与学习</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">8</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">9</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://2023andrewyang.github.io/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%AD%90%E6%9F%A5%E8%AF%A2%E4%B8%8ECTE/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Andrew Yang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Andrew's Blog">
+      <meta itemprop="description" content="记录技术、生活与学习">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="SQL基础-子查询与CTE | Andrew's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          SQL基础-子查询与CTE
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2026-02-20 14:30:00" itemprop="dateCreated datePublished" datetime="2026-02-20T14:30:00+08:00">2026-02-20</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-02-20 13:50:50" itemprop="dateModified" datetime="2026-02-20T13:50:50+08:00">2026-02-20</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%8A%80%E6%9C%AF%E6%96%87%E7%AB%A0/" itemprop="url" rel="index"><span itemprop="name">技术文章</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-break"></span>
+    <span class="post-meta-item" title="本文字数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-file-word"></i>
+      </span>
+      <span class="post-meta-item-text">本文字数：</span>
+      <span>4.5k</span>
+    </span>
+    <span class="post-meta-item" title="阅读时长">
+      <span class="post-meta-item-icon">
+        <i class="far fa-clock"></i>
+      </span>
+      <span class="post-meta-item-text">阅读时长 &asymp;</span>
+      <span>16 分钟</span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>继上一篇整理了 JOIN 和 UNION 之后，这篇笔记接着复习子查询（Subquery）和 CTE（公用表表达式）。子查询是 SQL 中非常灵活的工具，而 CTE 可以看作子查询的”升级版”，能让复杂查询的可读性大幅提升。两者经常搭配 JOIN、UNION 一起使用，是编写复杂查询的核心技能。</p>
+<hr>
+<span id="more"></span>
+
+<p>本文沿用<a href="/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%A4%9A%E8%A1%A8%E8%BF%9E%E6%8E%A5%E4%B8%8E%E9%9B%86%E5%90%88%E6%9F%A5%E8%AF%A2/">上一篇</a>的示例表，这里再列一次建表语句方便独立阅读：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 部门表</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> department (</span><br><span class="line">    id <span class="type">INT</span> <span class="keyword">PRIMARY KEY</span>,</span><br><span class="line">    dept_name <span class="type">VARCHAR</span>(<span class="number">50</span>),</span><br><span class="line">    location <span class="type">VARCHAR</span>(<span class="number">50</span>)</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">INSERT INTO</span> department <span class="keyword">VALUES</span></span><br><span class="line">(<span class="number">1</span>, <span class="string">&#x27;技术部&#x27;</span>, <span class="string">&#x27;北京&#x27;</span>),</span><br><span class="line">(<span class="number">2</span>, <span class="string">&#x27;销售部&#x27;</span>, <span class="string">&#x27;上海&#x27;</span>),</span><br><span class="line">(<span class="number">3</span>, <span class="string">&#x27;人事部&#x27;</span>, <span class="string">&#x27;北京&#x27;</span>),</span><br><span class="line">(<span class="number">4</span>, <span class="string">&#x27;财务部&#x27;</span>, <span class="string">&#x27;深圳&#x27;</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 员工表</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> employee (</span><br><span class="line">    id <span class="type">INT</span> <span class="keyword">PRIMARY KEY</span>,</span><br><span class="line">    name <span class="type">VARCHAR</span>(<span class="number">50</span>),</span><br><span class="line">    dept_id <span class="type">INT</span>,</span><br><span class="line">    salary <span class="type">DECIMAL</span>(<span class="number">10</span>, <span class="number">2</span>),</span><br><span class="line">    hire_date <span class="type">DATE</span>,</span><br><span class="line">    manager_id <span class="type">INT</span></span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">INSERT INTO</span> employee <span class="keyword">VALUES</span></span><br><span class="line">(<span class="number">1</span>,  <span class="string">&#x27;张三&#x27;</span>, <span class="number">1</span>,    <span class="number">15000</span>, <span class="string">&#x27;2022-03-15&#x27;</span>, <span class="number">6</span>),</span><br><span class="line">(<span class="number">2</span>,  <span class="string">&#x27;李四&#x27;</span>, <span class="number">1</span>,    <span class="number">18000</span>, <span class="string">&#x27;2020-07-01&#x27;</span>, <span class="number">6</span>),</span><br><span class="line">(<span class="number">3</span>,  <span class="string">&#x27;王五&#x27;</span>, <span class="number">2</span>,    <span class="number">12000</span>, <span class="string">&#x27;2023-01-10&#x27;</span>, <span class="number">7</span>),</span><br><span class="line">(<span class="number">4</span>,  <span class="string">&#x27;赵六&#x27;</span>, <span class="number">2</span>,    <span class="number">9000</span>,  <span class="string">&#x27;2023-06-20&#x27;</span>, <span class="number">7</span>),</span><br><span class="line">(<span class="number">5</span>,  <span class="string">&#x27;孙七&#x27;</span>, <span class="number">3</span>,    <span class="number">11000</span>, <span class="string">&#x27;2021-09-05&#x27;</span>, <span class="keyword">NULL</span>),</span><br><span class="line">(<span class="number">6</span>,  <span class="string">&#x27;周八&#x27;</span>, <span class="number">1</span>,    <span class="number">22000</span>, <span class="string">&#x27;2019-04-12&#x27;</span>, <span class="keyword">NULL</span>),</span><br><span class="line">(<span class="number">7</span>,  <span class="string">&#x27;吴九&#x27;</span>, <span class="number">2</span>,    <span class="number">15000</span>, <span class="string">&#x27;2022-11-08&#x27;</span>, <span class="number">6</span>),</span><br><span class="line">(<span class="number">8</span>,  <span class="string">&#x27;郑十&#x27;</span>, <span class="number">3</span>,    <span class="number">13000</span>, <span class="string">&#x27;2022-05-18&#x27;</span>, <span class="number">5</span>),</span><br><span class="line">(<span class="number">9</span>,  <span class="string">&#x27;刘一&#x27;</span>, <span class="keyword">NULL</span>, <span class="number">9500</span>,  <span class="string">&#x27;2024-01-15&#x27;</span>, <span class="keyword">NULL</span>),</span><br><span class="line">(<span class="number">10</span>, <span class="string">&#x27;陈二&#x27;</span>, <span class="keyword">NULL</span>, <span class="number">8000</span>,  <span class="string">&#x27;2024-03-01&#x27;</span>, <span class="keyword">NULL</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 项目表</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> project (</span><br><span class="line">    id <span class="type">INT</span> <span class="keyword">PRIMARY KEY</span>,</span><br><span class="line">    project_name <span class="type">VARCHAR</span>(<span class="number">100</span>),</span><br><span class="line">    start_date <span class="type">DATE</span>,</span><br><span class="line">    budget <span class="type">DECIMAL</span>(<span class="number">12</span>, <span class="number">2</span>)</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">INSERT INTO</span> project <span class="keyword">VALUES</span></span><br><span class="line">(<span class="number">1</span>, <span class="string">&#x27;电商平台重构&#x27;</span>, <span class="string">&#x27;2024-01-01&#x27;</span>, <span class="number">500000</span>),</span><br><span class="line">(<span class="number">2</span>, <span class="string">&#x27;数据分析系统&#x27;</span>, <span class="string">&#x27;2024-03-15&#x27;</span>, <span class="number">300000</span>),</span><br><span class="line">(<span class="number">3</span>, <span class="string">&#x27;APP 开发&#x27;</span>,     <span class="string">&#x27;2024-06-01&#x27;</span>, <span class="number">200000</span>),</span><br><span class="line">(<span class="number">4</span>, <span class="string">&#x27;内部工具升级&#x27;</span>, <span class="string">&#x27;2025-01-01&#x27;</span>, <span class="number">100000</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 员工项目关联表</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> emp_project (</span><br><span class="line">    emp_id <span class="type">INT</span>,</span><br><span class="line">    project_id <span class="type">INT</span>,</span><br><span class="line">    role <span class="type">VARCHAR</span>(<span class="number">50</span>),</span><br><span class="line">    <span class="keyword">PRIMARY KEY</span> (emp_id, project_id)</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">INSERT INTO</span> emp_project <span class="keyword">VALUES</span></span><br><span class="line">(<span class="number">1</span>, <span class="number">1</span>, <span class="string">&#x27;开发&#x27;</span>),</span><br><span class="line">(<span class="number">2</span>, <span class="number">1</span>, <span class="string">&#x27;架构师&#x27;</span>),</span><br><span class="line">(<span class="number">2</span>, <span class="number">2</span>, <span class="string">&#x27;技术负责人&#x27;</span>),</span><br><span class="line">(<span class="number">3</span>, <span class="number">3</span>, <span class="string">&#x27;销售对接&#x27;</span>),</span><br><span class="line">(<span class="number">6</span>, <span class="number">1</span>, <span class="string">&#x27;项目经理&#x27;</span>),</span><br><span class="line">(<span class="number">6</span>, <span class="number">2</span>, <span class="string">&#x27;技术顾问&#x27;</span>),</span><br><span class="line">(<span class="number">7</span>, <span class="number">3</span>, <span class="string">&#x27;销售负责人&#x27;</span>),</span><br><span class="line">(<span class="number">8</span>, <span class="number">2</span>, <span class="string">&#x27;人事协调&#x27;</span>);</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="一、子查询概述"><a href="#一、子查询概述" class="headerlink" title="一、子查询概述"></a>一、子查询概述</h2><p><strong>子查询</strong>（Subquery）就是嵌套在另一个 SQL 语句内部的 <code>SELECT</code> 查询，通常用括号 <code>()</code> 包裹。子查询可以出现在 <code>WHERE</code>、<code>FROM</code>、<code>SELECT</code>、<code>HAVING</code> 等子句中。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 子查询的基本形式</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> salary <span class="operator">&gt;</span> (<span class="keyword">SELECT</span> <span class="built_in">AVG</span>(salary) <span class="keyword">FROM</span> employee);</span><br><span class="line"><span class="comment">--              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^</span></span><br><span class="line"><span class="comment">--              这就是一个子查询（嵌套在 WHERE 中）</span></span><br></pre></td></tr></table></figure>
+
+<p>子查询可以从两个维度来分类：</p>
+<table>
+<thead>
+<tr>
+<th>分类维度</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>按返回结果</strong></td>
+<td>标量子查询</td>
+<td>返回<strong>单个值</strong>（一行一列）</td>
+</tr>
+<tr>
+<td></td>
+<td>列子查询</td>
+<td>返回<strong>一列多行</strong></td>
+</tr>
+<tr>
+<td></td>
+<td>行子查询</td>
+<td>返回<strong>一行多列</strong></td>
+</tr>
+<tr>
+<td></td>
+<td>表子查询</td>
+<td>返回<strong>多行多列</strong>（一张临时表）</td>
+</tr>
+<tr>
+<td><strong>按关联性</strong></td>
+<td>非关联子查询</td>
+<td>子查询<strong>独立执行</strong>，与外层无关</td>
+</tr>
+<tr>
+<td></td>
+<td>关联子查询</td>
+<td>子查询<strong>依赖外层</strong>查询的值</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="二、按返回结果分类"><a href="#二、按返回结果分类" class="headerlink" title="二、按返回结果分类"></a>二、按返回结果分类</h2><h3 id="1-标量子查询（返回单个值）"><a href="#1-标量子查询（返回单个值）" class="headerlink" title="1. 标量子查询（返回单个值）"></a>1. 标量子查询（返回单个值）</h3><p>子查询只返回<strong>一行一列</strong>（一个标量值），常用于比较运算符（<code>=</code>、<code>&gt;</code>、<code>&lt;</code> 等）的右侧。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询工资高于全公司平均工资的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> salary <span class="operator">&gt;</span> (<span class="keyword">SELECT</span> <span class="built_in">AVG</span>(salary) <span class="keyword">FROM</span> employee);</span><br><span class="line"><span class="comment">-- AVG(salary) = 13250，返回工资大于 13250 的员工</span></span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>salary</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>张三</td>
+<td>15000</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>18000</td>
+</tr>
+<tr>
+<td>周八</td>
+<td>22000</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>15000</td>
+</tr>
+</tbody></table>
+<p><strong>在 SELECT 中使用标量子查询</strong>：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询每个员工的工资与公司平均工资的差值</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name,</span><br><span class="line">    salary,</span><br><span class="line">    salary <span class="operator">-</span> (<span class="keyword">SELECT</span> <span class="built_in">AVG</span>(salary) <span class="keyword">FROM</span> employee) <span class="keyword">AS</span> diff_from_avg</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>⚠️ <strong>注意</strong>：如果标量子查询返回了<strong>多行</strong>，SQL 会报错！确保子查询结果只有一行一列。</p>
+</blockquote>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- ❌ 错误：子查询返回多行，不能用 = 比较</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> dept_id <span class="operator">=</span> (<span class="keyword">SELECT</span> id <span class="keyword">FROM</span> department <span class="keyword">WHERE</span> location <span class="operator">=</span> <span class="string">&#x27;北京&#x27;</span>);</span><br><span class="line"><span class="comment">-- 北京有两个部门（技术部和人事部），子查询返回了 2 行，报错！</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- ✅ 正确：多行时应使用 IN</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> dept_id <span class="keyword">IN</span> (<span class="keyword">SELECT</span> id <span class="keyword">FROM</span> department <span class="keyword">WHERE</span> location <span class="operator">=</span> <span class="string">&#x27;北京&#x27;</span>);</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-列子查询（返回一列多行）"><a href="#2-列子查询（返回一列多行）" class="headerlink" title="2. 列子查询（返回一列多行）"></a>2. 列子查询（返回一列多行）</h3><p>子查询返回<strong>一列多行</strong>，常配合 <code>IN</code>、<code>ANY</code>、<code>ALL</code>、<code>EXISTS</code> 使用。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询有员工的部门名称</span></span><br><span class="line"><span class="keyword">SELECT</span> dept_name</span><br><span class="line"><span class="keyword">FROM</span> department</span><br><span class="line"><span class="keyword">WHERE</span> id <span class="keyword">IN</span> (<span class="keyword">SELECT</span> <span class="keyword">DISTINCT</span> dept_id <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> dept_id <span class="keyword">IS</span> <span class="keyword">NOT NULL</span>);</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>dept_name</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>技术部</td>
+</tr>
+<tr>
+<td>销售部</td>
+</tr>
+<tr>
+<td>人事部</td>
+</tr>
+</tbody></table>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询参与了项目的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> id <span class="keyword">IN</span> (<span class="keyword">SELECT</span> <span class="keyword">DISTINCT</span> emp_id <span class="keyword">FROM</span> emp_project);</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>salary</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>张三</td>
+<td>15000</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>18000</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>12000</td>
+</tr>
+<tr>
+<td>周八</td>
+<td>22000</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>15000</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>13000</td>
+</tr>
+</tbody></table>
+<h3 id="3-行子查询（返回一行多列）"><a href="#3-行子查询（返回一行多列）" class="headerlink" title="3. 行子查询（返回一行多列）"></a>3. 行子查询（返回一行多列）</h3><p>子查询返回<strong>一行多列</strong>，可以与多个列同时比较。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询与张三在同一部门且工资相同的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name, dept_id, salary</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> (dept_id, salary) <span class="operator">=</span> (<span class="keyword">SELECT</span> dept_id, salary <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> name <span class="operator">=</span> <span class="string">&#x27;张三&#x27;</span>);</span><br><span class="line"><span class="comment">-- 张三: dept_id=1, salary=15000</span></span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>dept_id</th>
+<th>salary</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>张三</td>
+<td>1</td>
+<td>15000</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>补充</strong>：行子查询用的不多，但在需要同时匹配多个列时很有用。注意子查询必须恰好返回<strong>一行</strong>。</p>
+</blockquote>
+<h3 id="4-表子查询（派生表-Derived-Table）"><a href="#4-表子查询（派生表-Derived-Table）" class="headerlink" title="4. 表子查询（派生表 &#x2F; Derived Table）"></a>4. 表子查询（派生表 &#x2F; Derived Table）</h3><p>子查询返回<strong>多行多列</strong>，放在 <code>FROM</code> 子句中当作临时表使用，也叫<strong>派生表</strong>。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询每个部门工资最高的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> e.name, e.salary, ds.dept_name, ds.max_salary</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">JOIN</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> d.id, d.dept_name, <span class="built_in">MAX</span>(e2.salary) <span class="keyword">AS</span> max_salary</span><br><span class="line">    <span class="keyword">FROM</span> department d</span><br><span class="line">    <span class="keyword">JOIN</span> employee e2 <span class="keyword">ON</span> d.id <span class="operator">=</span> e2.dept_id</span><br><span class="line">    <span class="keyword">GROUP</span> <span class="keyword">BY</span> d.id, d.dept_name</span><br><span class="line">) ds <span class="keyword">ON</span> e.dept_id <span class="operator">=</span> ds.id <span class="keyword">AND</span> e.salary <span class="operator">=</span> ds.max_salary;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>salary</th>
+<th>dept_name</th>
+<th>max_salary</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>周八</td>
+<td>22000</td>
+<td>技术部</td>
+<td>22000</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>15000</td>
+<td>销售部</td>
+<td>15000</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>13000</td>
+<td>人事部</td>
+<td>13000</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>⚠️ <strong>注意</strong>：MySQL 要求 <code>FROM</code> 中的子查询（派生表）<strong>必须指定别名</strong>，否则会报错。</p>
+</blockquote>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- ❌ 错误：派生表没有别名</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> (<span class="keyword">SELECT</span> dept_id, <span class="built_in">AVG</span>(salary) <span class="keyword">FROM</span> employee <span class="keyword">GROUP</span> <span class="keyword">BY</span> dept_id);</span><br><span class="line"><span class="comment">-- 报错：Every derived table must have its own alias</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- ✅ 正确：加上别名</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> (<span class="keyword">SELECT</span> dept_id, <span class="built_in">AVG</span>(salary) <span class="keyword">AS</span> avg_sal <span class="keyword">FROM</span> employee <span class="keyword">GROUP</span> <span class="keyword">BY</span> dept_id) <span class="keyword">AS</span> dept_avg;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="三、⭐-按关联性分类"><a href="#三、⭐-按关联性分类" class="headerlink" title="三、⭐ 按关联性分类"></a>三、⭐ 按关联性分类</h2><h3 id="1-非关联子查询（独立子查询）"><a href="#1-非关联子查询（独立子查询）" class="headerlink" title="1. 非关联子查询（独立子查询）"></a>1. 非关联子查询（独立子查询）</h3><p>子查询可以<strong>独立执行</strong>，不依赖外层查询的任何值。执行顺序：<strong>先执行子查询，再执行外层查询</strong>。</p>
+<p>前面大部分示例都是非关联子查询：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 非关联子查询：子查询独立执行，返回平均工资</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> salary <span class="operator">&gt;</span> (<span class="keyword">SELECT</span> <span class="built_in">AVG</span>(salary) <span class="keyword">FROM</span> employee);</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-⭐-关联子查询（相关子查询）"><a href="#2-⭐-关联子查询（相关子查询）" class="headerlink" title="2. ⭐ 关联子查询（相关子查询）"></a>2. ⭐ 关联子查询（相关子查询）</h3><p>子查询<strong>引用了外层查询的列</strong>，每处理外层的一行，子查询就要重新执行一次。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询工资高于其所在部门平均工资的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary, dept_id</span><br><span class="line"><span class="keyword">FROM</span> employee e1</span><br><span class="line"><span class="keyword">WHERE</span> salary <span class="operator">&gt;</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> <span class="built_in">AVG</span>(salary)</span><br><span class="line">    <span class="keyword">FROM</span> employee e2</span><br><span class="line">    <span class="keyword">WHERE</span> e2.dept_id <span class="operator">=</span> e1.dept_id  <span class="comment">-- 引用了外层的 e1.dept_id</span></span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<p>执行逻辑：对于外层的<strong>每一行</strong>，子查询都会根据该行的 <code>dept_id</code> 重新计算对应部门的平均工资。</p>
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>salary</th>
+<th>dept_id</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>周八</td>
+<td>22000</td>
+<td>1</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>15000</td>
+<td>2</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>13000</td>
+<td>3</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>解析</strong>：</p>
+<ul>
+<li>技术部平均：(15000 + 18000 + 22000) &#x2F; 3 ≈ 18333 → 周八(22000) 高于平均</li>
+<li>销售部平均：(12000 + 9000 + 15000) &#x2F; 3 &#x3D; 12000 → 吴九(15000) 高于平均</li>
+<li>人事部平均：(11000 + 13000) &#x2F; 2 &#x3D; 12000 → 郑十(13000) 高于平均</li>
+</ul>
+</blockquote>
+<blockquote>
+<p>⚠️ <strong>性能提示</strong>：关联子查询对外层每一行都要执行一次子查询，当数据量大时<strong>性能较差</strong>。很多关联子查询可以改写为 JOIN 来优化，后面会对比说明。</p>
+</blockquote>
+<hr>
+<h2 id="四、⭐-子查询常用关键字"><a href="#四、⭐-子查询常用关键字" class="headerlink" title="四、⭐ 子查询常用关键字"></a>四、⭐ 子查询常用关键字</h2><h3 id="1-IN-NOT-IN"><a href="#1-IN-NOT-IN" class="headerlink" title="1. IN &#x2F; NOT IN"></a>1. <code>IN</code> &#x2F; <code>NOT IN</code></h3><p>判断值是否在子查询的结果集中。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询有项目的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> id <span class="keyword">IN</span> (<span class="keyword">SELECT</span> emp_id <span class="keyword">FROM</span> emp_project);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 查询没有项目的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> id <span class="keyword">NOT</span> <span class="keyword">IN</span> (<span class="keyword">SELECT</span> emp_id <span class="keyword">FROM</span> emp_project);</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>⚠️ <strong>NOT IN 的 NULL 陷阱</strong>：如果子查询结果中包含 <code>NULL</code>，<code>NOT IN</code> 会返回<strong>空结果</strong>！因为任何值与 <code>NULL</code> 比较的结果都是 <code>UNKNOWN</code>。</p>
+</blockquote>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- ❌ 危险：如果子查询结果包含 NULL，NOT IN 返回空</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> dept_id <span class="keyword">NOT</span> <span class="keyword">IN</span> (<span class="keyword">SELECT</span> manager_id <span class="keyword">FROM</span> employee);</span><br><span class="line"><span class="comment">-- manager_id 列有 NULL 值 → 整个查询返回空结果！</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- ✅ 安全写法：排除 NULL</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> dept_id <span class="keyword">NOT</span> <span class="keyword">IN</span> (<span class="keyword">SELECT</span> manager_id <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> manager_id <span class="keyword">IS</span> <span class="keyword">NOT NULL</span>);</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-⭐-EXISTS-NOT-EXISTS"><a href="#2-⭐-EXISTS-NOT-EXISTS" class="headerlink" title="2. ⭐ EXISTS &#x2F; NOT EXISTS"></a>2. ⭐ <code>EXISTS</code> &#x2F; <code>NOT EXISTS</code></h3><p>判断子查询是否能返回<strong>至少一行</strong>数据（不关心具体值，只关心”有没有”）。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询参与了项目的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">WHERE</span> <span class="keyword">EXISTS</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> <span class="number">1</span> <span class="keyword">FROM</span> emp_project ep <span class="keyword">WHERE</span> ep.emp_id <span class="operator">=</span> e.id</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 查询没有参与任何项目的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">WHERE</span> <span class="keyword">NOT</span> <span class="keyword">EXISTS</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> <span class="number">1</span> <span class="keyword">FROM</span> emp_project ep <span class="keyword">WHERE</span> ep.emp_id <span class="operator">=</span> e.id</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>NOT EXISTS 结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>赵六</td>
+</tr>
+<tr>
+<td>孙七</td>
+</tr>
+<tr>
+<td>刘一</td>
+</tr>
+<tr>
+<td>陈二</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>补充</strong>：<code>EXISTS</code> 中的 <code>SELECT 1</code> 只是占位符，写 <code>SELECT *</code> 或 <code>SELECT 42</code> 效果一样，因为 EXISTS 只判断有无结果行，不关心具体返回什么值。</p>
+</blockquote>
+<h3 id="3-ANY-SOME-ALL"><a href="#3-ANY-SOME-ALL" class="headerlink" title="3. ANY &#x2F; SOME &#x2F; ALL"></a>3. <code>ANY</code> &#x2F; <code>SOME</code> &#x2F; <code>ALL</code></h3><p>配合比较运算符使用，与列子查询的结果进行批量比较。<code>SOME</code> 是 <code>ANY</code> 的同义词。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询工资大于销售部任意一人的员工（&gt; ANY = 大于最小值）</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> salary <span class="operator">&gt;</span> <span class="keyword">ANY</span> (<span class="keyword">SELECT</span> salary <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> dept_id <span class="operator">=</span> <span class="number">2</span>);</span><br><span class="line"><span class="comment">-- 销售部工资: 12000, 9000, 15000</span></span><br><span class="line"><span class="comment">-- &gt; ANY 即 &gt; 9000（最小值），返回所有工资 &gt; 9000 的员工</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询工资大于销售部所有人的员工（&gt; ALL = 大于最大值）</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> salary <span class="operator">&gt;</span> <span class="keyword">ALL</span> (<span class="keyword">SELECT</span> salary <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> dept_id <span class="operator">=</span> <span class="number">2</span>);</span><br><span class="line"><span class="comment">-- &gt; ALL 即 &gt; 15000（最大值）</span></span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>salary</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>李四</td>
+<td>18000</td>
+</tr>
+<tr>
+<td>周八</td>
+<td>22000</td>
+</tr>
+</tbody></table>
+<p><strong>ANY &#x2F; ALL 速查</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>表达式</th>
+<th>等价于</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>&gt; ANY (子查询)</code></td>
+<td><code>&gt; MIN(子查询结果)</code></td>
+<td>大于最小值</td>
+</tr>
+<tr>
+<td><code>&lt; ANY (子查询)</code></td>
+<td><code>&lt; MAX(子查询结果)</code></td>
+<td>小于最大值</td>
+</tr>
+<tr>
+<td><code>&gt; ALL (子查询)</code></td>
+<td><code>&gt; MAX(子查询结果)</code></td>
+<td>大于最大值</td>
+</tr>
+<tr>
+<td><code>&lt; ALL (子查询)</code></td>
+<td><code>&lt; MIN(子查询结果)</code></td>
+<td>小于最小值</td>
+</tr>
+<tr>
+<td><code>= ANY (子查询)</code></td>
+<td><code>IN (子查询结果)</code></td>
+<td>等于其中之一</td>
+</tr>
+</tbody></table>
+<h3 id="4-⭐-IN-vs-EXISTS-对比"><a href="#4-⭐-IN-vs-EXISTS-对比" class="headerlink" title="4. ⭐ IN vs EXISTS 对比"></a>4. ⭐ <code>IN</code> vs <code>EXISTS</code> 对比</h3><p>这是最常被讨论的对比，两者在很多场景下可以互换，但有重要区别：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- IN 写法</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> dept_id <span class="keyword">IN</span> (<span class="keyword">SELECT</span> id <span class="keyword">FROM</span> department <span class="keyword">WHERE</span> location <span class="operator">=</span> <span class="string">&#x27;北京&#x27;</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- EXISTS 写法</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">WHERE</span> <span class="keyword">EXISTS</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> <span class="number">1</span> <span class="keyword">FROM</span> department d</span><br><span class="line">    <span class="keyword">WHERE</span> d.id <span class="operator">=</span> e.dept_id <span class="keyword">AND</span> d.location <span class="operator">=</span> <span class="string">&#x27;北京&#x27;</span></span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>对比维度</th>
+<th>IN</th>
+<th>EXISTS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>执行方式</strong></td>
+<td>先执行子查询，生成结果集，再逐行比对</td>
+<td>对外层每一行，执行子查询判断是否有结果</td>
+</tr>
+<tr>
+<td><strong>NULL 处理</strong></td>
+<td><code>NOT IN</code> 遇到 NULL 会返回空结果</td>
+<td><code>NOT EXISTS</code> 正确处理 NULL ✅</td>
+</tr>
+<tr>
+<td><strong>适用场景</strong></td>
+<td>子查询结果集<strong>小</strong>时效率高</td>
+<td>子查询结果集<strong>大</strong>、外层表<strong>小</strong>时效率高</td>
+</tr>
+<tr>
+<td><strong>可读性</strong></td>
+<td>较直观</td>
+<td>稍复杂</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>实用建议</strong>：</p>
+<ul>
+<li>简单场景优先用 <code>IN</code>，代码更直观</li>
+<li>涉及 <code>NOT IN</code> 且子查询可能有 <code>NULL</code> 时，<strong>务必用 <code>NOT EXISTS</code></strong> 来避免陷阱</li>
+<li>大数据量场景，关注执行计划选择最优方案</li>
+</ul>
+</blockquote>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- ⭐ NOT IN vs NOT EXISTS 的 NULL 问题演示</span></span><br><span class="line"><span class="comment">-- ❌ NOT IN：如果子查询结果含 NULL，返回空</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> dept_id <span class="keyword">NOT</span> <span class="keyword">IN</span> (<span class="keyword">SELECT</span> dept_id <span class="keyword">FROM</span> employee);</span><br><span class="line"><span class="comment">-- dept_id 列有 NULL（刘一、陈二）→ 结果为空！</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- ✅ NOT EXISTS：正确处理</span></span><br><span class="line"><span class="keyword">SELECT</span> e1.name <span class="keyword">FROM</span> employee e1</span><br><span class="line"><span class="keyword">WHERE</span> <span class="keyword">NOT</span> <span class="keyword">EXISTS</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> <span class="number">1</span> <span class="keyword">FROM</span> employee e2</span><br><span class="line">    <span class="keyword">WHERE</span> e2.dept_id <span class="operator">=</span> e1.dept_id <span class="keyword">AND</span> e2.id <span class="operator">!=</span> e1.id</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="五、子查询的使用位置"><a href="#五、子查询的使用位置" class="headerlink" title="五、子查询的使用位置"></a>五、子查询的使用位置</h2><p>子查询几乎可以出现在 SQL 语句的任何位置，以下是常见的使用位置汇总：</p>
+<h3 id="1-WHERE-子句中（最常见）"><a href="#1-WHERE-子句中（最常见）" class="headerlink" title="1. WHERE 子句中（最常见）"></a>1. WHERE 子句中（最常见）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询工资最高的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> salary <span class="operator">=</span> (<span class="keyword">SELECT</span> <span class="built_in">MAX</span>(salary) <span class="keyword">FROM</span> employee);</span><br><span class="line"><span class="comment">-- 输出: 周八, 22000</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2-FROM-子句中（派生表）"><a href="#2-FROM-子句中（派生表）" class="headerlink" title="2. FROM 子句中（派生表）"></a>2. FROM 子句中（派生表）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 统计每个部门的平均工资，再筛选高于全公司平均的部门</span></span><br><span class="line"><span class="keyword">SELECT</span> dept_name, avg_salary</span><br><span class="line"><span class="keyword">FROM</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> d.dept_name, <span class="built_in">AVG</span>(e.salary) <span class="keyword">AS</span> avg_salary</span><br><span class="line">    <span class="keyword">FROM</span> department d</span><br><span class="line">    <span class="keyword">JOIN</span> employee e <span class="keyword">ON</span> d.id <span class="operator">=</span> e.dept_id</span><br><span class="line">    <span class="keyword">GROUP</span> <span class="keyword">BY</span> d.dept_name</span><br><span class="line">) <span class="keyword">AS</span> dept_stats</span><br><span class="line"><span class="keyword">WHERE</span> avg_salary <span class="operator">&gt;</span> (<span class="keyword">SELECT</span> <span class="built_in">AVG</span>(salary) <span class="keyword">FROM</span> employee);</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-SELECT-子句中（标量子查询）"><a href="#3-SELECT-子句中（标量子查询）" class="headerlink" title="3. SELECT 子句中（标量子查询）"></a>3. SELECT 子句中（标量子查询）</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 为每个部门附上员工人数</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    d.dept_name,</span><br><span class="line">    d.location,</span><br><span class="line">    (<span class="keyword">SELECT</span> <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">FROM</span> employee e <span class="keyword">WHERE</span> e.dept_id <span class="operator">=</span> d.id) <span class="keyword">AS</span> emp_count</span><br><span class="line"><span class="keyword">FROM</span> department d;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>dept_name</th>
+<th>location</th>
+<th>emp_count</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>技术部</td>
+<td>北京</td>
+<td>3</td>
+</tr>
+<tr>
+<td>销售部</td>
+<td>上海</td>
+<td>3</td>
+</tr>
+<tr>
+<td>人事部</td>
+<td>北京</td>
+<td>2</td>
+</tr>
+<tr>
+<td>财务部</td>
+<td>深圳</td>
+<td>0</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>补充</strong>：SELECT 中的子查询必须是<strong>标量子查询</strong>（返回单个值），否则报错。</p>
+</blockquote>
+<h3 id="4-HAVING-子句中"><a href="#4-HAVING-子句中" class="headerlink" title="4. HAVING 子句中"></a>4. HAVING 子句中</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询平均工资高于全公司平均的部门</span></span><br><span class="line"><span class="keyword">SELECT</span> d.dept_name, <span class="built_in">AVG</span>(e.salary) <span class="keyword">AS</span> avg_salary</span><br><span class="line"><span class="keyword">FROM</span> department d</span><br><span class="line"><span class="keyword">JOIN</span> employee e <span class="keyword">ON</span> d.id <span class="operator">=</span> e.dept_id</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> d.dept_name</span><br><span class="line"><span class="keyword">HAVING</span> <span class="built_in">AVG</span>(e.salary) <span class="operator">&gt;</span> (<span class="keyword">SELECT</span> <span class="built_in">AVG</span>(salary) <span class="keyword">FROM</span> employee);</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="六、⭐-CTE-公用表表达式（WITH-语法）"><a href="#六、⭐-CTE-公用表表达式（WITH-语法）" class="headerlink" title="六、⭐ CTE 公用表表达式（WITH 语法）"></a>六、⭐ CTE 公用表表达式（WITH 语法）</h2><p><strong>CTE</strong>（Common Table Expression，公用表表达式）使用 <code>WITH</code> 关键字定义一个<strong>临时命名的结果集</strong>，可以在后续查询中像表一样引用它。CTE 本质上是子查询的”升级版”，<strong>可读性更好、支持复用、还能递归</strong>。</p>
+<blockquote>
+<p>⚠️ <strong>版本要求</strong>：CTE 需要 <strong>MySQL 8.0+</strong> 才支持。</p>
+</blockquote>
+<h3 id="1-基础-CTE-语法"><a href="#1-基础-CTE-语法" class="headerlink" title="1. 基础 CTE 语法"></a>1. 基础 CTE 语法</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">WITH</span> cte_name <span class="keyword">AS</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> ...</span><br><span class="line">)</span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> cte_name;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 用 CTE 查询工资高于部门平均工资的员工</span></span><br><span class="line"><span class="keyword">WITH</span> dept_avg <span class="keyword">AS</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> dept_id, <span class="built_in">AVG</span>(salary) <span class="keyword">AS</span> avg_salary</span><br><span class="line">    <span class="keyword">FROM</span> employee</span><br><span class="line">    <span class="keyword">WHERE</span> dept_id <span class="keyword">IS</span> <span class="keyword">NOT NULL</span></span><br><span class="line">    <span class="keyword">GROUP</span> <span class="keyword">BY</span> dept_id</span><br><span class="line">)</span><br><span class="line"><span class="keyword">SELECT</span> e.name, e.salary, da.avg_salary</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">JOIN</span> dept_avg da <span class="keyword">ON</span> e.dept_id <span class="operator">=</span> da.dept_id</span><br><span class="line"><span class="keyword">WHERE</span> e.salary <span class="operator">&gt;</span> da.avg_salary;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>salary</th>
+<th>avg_salary</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>周八</td>
+<td>22000</td>
+<td>18333.33</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>15000</td>
+<td>12000.00</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>13000</td>
+<td>12000.00</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 对比一下，同样的需求如果用子查询写：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> e.name, e.salary, da.avg_salary</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">JOIN</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> dept_id, <span class="built_in">AVG</span>(salary) <span class="keyword">AS</span> avg_salary</span><br><span class="line">    <span class="keyword">FROM</span> employee <span class="keyword">WHERE</span> dept_id <span class="keyword">IS</span> <span class="keyword">NOT NULL</span></span><br><span class="line">    <span class="keyword">GROUP</span> <span class="keyword">BY</span> dept_id</span><br><span class="line">) da <span class="keyword">ON</span> e.dept_id <span class="operator">=</span> da.dept_id</span><br><span class="line"><span class="keyword">WHERE</span> e.salary <span class="operator">&gt;</span> da.avg_salary;</span><br></pre></td></tr></table></figure>
+<p>CTE 把子查询提取到了前面并命名，主查询更简洁、意图更清晰。</p>
+</blockquote>
+<h3 id="2-多个-CTE"><a href="#2-多个-CTE" class="headerlink" title="2. 多个 CTE"></a>2. 多个 CTE</h3><p>多个 CTE 用<strong>逗号</strong>分隔，后面的 CTE 可以引用前面的 CTE。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">WITH</span></span><br><span class="line">    dept_stats <span class="keyword">AS</span> (</span><br><span class="line">        <span class="keyword">SELECT</span></span><br><span class="line">            dept_id,</span><br><span class="line">            <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">AS</span> emp_count,</span><br><span class="line">            <span class="built_in">AVG</span>(salary) <span class="keyword">AS</span> avg_salary</span><br><span class="line">        <span class="keyword">FROM</span> employee</span><br><span class="line">        <span class="keyword">WHERE</span> dept_id <span class="keyword">IS</span> <span class="keyword">NOT NULL</span></span><br><span class="line">        <span class="keyword">GROUP</span> <span class="keyword">BY</span> dept_id</span><br><span class="line">    ),</span><br><span class="line">    project_stats <span class="keyword">AS</span> (</span><br><span class="line">        <span class="keyword">SELECT</span></span><br><span class="line">            emp_id,</span><br><span class="line">            <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">AS</span> project_count</span><br><span class="line">        <span class="keyword">FROM</span> emp_project</span><br><span class="line">        <span class="keyword">GROUP</span> <span class="keyword">BY</span> emp_id</span><br><span class="line">    )</span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    e.name,</span><br><span class="line">    d.dept_name,</span><br><span class="line">    ROUND(ds.avg_salary, <span class="number">2</span>) <span class="keyword">AS</span> dept_avg,</span><br><span class="line">    <span class="built_in">COALESCE</span>(ps.project_count, <span class="number">0</span>) <span class="keyword">AS</span> projects</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">JOIN</span> department d <span class="keyword">ON</span> e.dept_id <span class="operator">=</span> d.id</span><br><span class="line"><span class="keyword">JOIN</span> dept_stats ds <span class="keyword">ON</span> e.dept_id <span class="operator">=</span> ds.dept_id</span><br><span class="line"><span class="keyword">LEFT</span> <span class="keyword">JOIN</span> project_stats ps <span class="keyword">ON</span> e.id <span class="operator">=</span> ps.emp_id;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>dept_name</th>
+<th>dept_avg</th>
+<th>projects</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>张三</td>
+<td>技术部</td>
+<td>18333.33</td>
+<td>1</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>技术部</td>
+<td>18333.33</td>
+<td>2</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>销售部</td>
+<td>12000.00</td>
+<td>1</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>销售部</td>
+<td>12000.00</td>
+<td>0</td>
+</tr>
+<tr>
+<td>孙七</td>
+<td>人事部</td>
+<td>12000.00</td>
+<td>0</td>
+</tr>
+<tr>
+<td>周八</td>
+<td>技术部</td>
+<td>18333.33</td>
+<td>2</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>销售部</td>
+<td>12000.00</td>
+<td>1</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>人事部</td>
+<td>12000.00</td>
+<td>1</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>补充</strong>：多个 CTE 之间用逗号分隔，只需要写<strong>一个 <code>WITH</code></strong> 关键字。每个 CTE 都可以引用在它之前定义的其他 CTE。</p>
+</blockquote>
+<h3 id="3-⭐-递归-CTE（WITH-RECURSIVE）"><a href="#3-⭐-递归-CTE（WITH-RECURSIVE）" class="headerlink" title="3. ⭐ 递归 CTE（WITH RECURSIVE）"></a>3. ⭐ 递归 CTE（WITH RECURSIVE）</h3><p>递归 CTE 是 CTE 最强大的功能，可以实现<strong>层级遍历</strong>、<strong>树形结构查询</strong>等子查询做不到的事情。</p>
+<p><strong>基本结构</strong>：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">WITH</span> <span class="keyword">RECURSIVE</span> cte_name <span class="keyword">AS</span> (</span><br><span class="line">    <span class="comment">-- 锚点成员（Anchor）：递归的起点</span></span><br><span class="line">    <span class="keyword">SELECT</span> ...</span><br><span class="line"></span><br><span class="line">    <span class="keyword">UNION</span> <span class="keyword">ALL</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">-- 递归成员（Recursive）：引用自身，逐层展开</span></span><br><span class="line">    <span class="keyword">SELECT</span> ...</span><br><span class="line">    <span class="keyword">FROM</span> cte_name</span><br><span class="line">    <span class="keyword">JOIN</span> ...</span><br><span class="line">)</span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> cte_name;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 从周八开始，递归查询所有下属（多层级）</span></span><br><span class="line"><span class="keyword">WITH</span> <span class="keyword">RECURSIVE</span> subordinates <span class="keyword">AS</span> (</span><br><span class="line">    <span class="comment">-- 锚点：从周八开始</span></span><br><span class="line">    <span class="keyword">SELECT</span> id, name, manager_id, <span class="number">1</span> <span class="keyword">AS</span> level</span><br><span class="line">    <span class="keyword">FROM</span> employee</span><br><span class="line">    <span class="keyword">WHERE</span> name <span class="operator">=</span> <span class="string">&#x27;周八&#x27;</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">UNION</span> <span class="keyword">ALL</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">-- 递归：查找每个人的下属</span></span><br><span class="line">    <span class="keyword">SELECT</span> e.id, e.name, e.manager_id, s.level <span class="operator">+</span> <span class="number">1</span></span><br><span class="line">    <span class="keyword">FROM</span> employee e</span><br><span class="line">    <span class="keyword">INNER</span> <span class="keyword">JOIN</span> subordinates s <span class="keyword">ON</span> e.manager_id <span class="operator">=</span> s.id</span><br><span class="line">)</span><br><span class="line"><span class="keyword">SELECT</span> id, name, manager_id, level <span class="keyword">FROM</span> subordinates;</span><br></pre></td></tr></table></figure>
+
+<p>结果：</p>
+<table>
+<thead>
+<tr>
+<th>id</th>
+<th>name</th>
+<th>manager_id</th>
+<th>level</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>6</td>
+<td>周八</td>
+<td>NULL</td>
+<td>1</td>
+</tr>
+<tr>
+<td>1</td>
+<td>张三</td>
+<td>6</td>
+<td>2</td>
+</tr>
+<tr>
+<td>2</td>
+<td>李四</td>
+<td>6</td>
+<td>2</td>
+</tr>
+<tr>
+<td>7</td>
+<td>吴九</td>
+<td>6</td>
+<td>2</td>
+</tr>
+<tr>
+<td>3</td>
+<td>王五</td>
+<td>7</td>
+<td>3</td>
+</tr>
+<tr>
+<td>4</td>
+<td>赵六</td>
+<td>7</td>
+<td>3</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>执行过程</strong>：</p>
+<ol>
+<li><strong>第 1 轮</strong>（锚点）：找到周八（level&#x3D;1）</li>
+<li><strong>第 2 轮</strong>（递归）：找 manager_id&#x3D;6 的员工 → 张三、李四、吴九（level&#x3D;2）</li>
+<li><strong>第 3 轮</strong>（递归）：找 manager_id 为 1、2、7 的员工 → 王五、赵六（level&#x3D;3，manager_id&#x3D;7）</li>
+<li><strong>第 4 轮</strong>：找 manager_id 为 3、4 的员工 → 无 → 递归终止</li>
+</ol>
+</blockquote>
+<blockquote>
+<p>⚠️ <strong>注意事项</strong>：</p>
+<ul>
+<li>递归 CTE <strong>必须</strong>包含 <code>UNION ALL</code>（或 <code>UNION</code>）连接锚点和递归成员</li>
+<li>递归成员<strong>必须引用 CTE 自身</strong>，并且有终止条件（否则无限递归）</li>
+<li>MySQL 默认递归深度限制为 <strong>1000 次</strong>，可通过 <code>SET cte_max_recursion_depth = N</code> 调整</li>
+<li>递归 CTE 中推荐使用 <code>UNION ALL</code>（更高效），除非确实需要去重才用 <code>UNION</code></li>
+</ul>
+</blockquote>
+<p><strong>更多递归场景——生成连续日期序列</strong>：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 生成 2026-02-01 到 2026-02-10 的日期序列</span></span><br><span class="line"><span class="keyword">WITH</span> <span class="keyword">RECURSIVE</span> date_series <span class="keyword">AS</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> <span class="type">DATE</span>(<span class="string">&#x27;2026-02-01&#x27;</span>) <span class="keyword">AS</span> dt</span><br><span class="line">    <span class="keyword">UNION</span> <span class="keyword">ALL</span></span><br><span class="line">    <span class="keyword">SELECT</span> DATE_ADD(dt, <span class="type">INTERVAL</span> <span class="number">1</span> <span class="keyword">DAY</span>)</span><br><span class="line">    <span class="keyword">FROM</span> date_series</span><br><span class="line">    <span class="keyword">WHERE</span> dt <span class="operator">&lt;</span> <span class="string">&#x27;2026-02-10&#x27;</span></span><br><span class="line">)</span><br><span class="line"><span class="keyword">SELECT</span> dt <span class="keyword">FROM</span> date_series;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <strong>实用场景</strong>：生成日期序列后，可以 LEFT JOIN 业务表，统计<strong>每天</strong>的数据（包括没有数据的日子显示为 0），这在报表开发中非常常用。</p>
+</blockquote>
+<h3 id="4-⭐-CTE-vs-子查询-对比"><a href="#4-⭐-CTE-vs-子查询-对比" class="headerlink" title="4. ⭐ CTE vs 子查询 对比"></a>4. ⭐ CTE vs 子查询 对比</h3><table>
+<thead>
+<tr>
+<th>对比维度</th>
+<th>CTE（WITH）</th>
+<th>子查询</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>可读性</strong></td>
+<td>✅ 好，命名清晰，主查询简洁</td>
+<td>嵌套深时较差</td>
+</tr>
+<tr>
+<td><strong>可复用</strong></td>
+<td>✅ 同一语句中可<strong>多次引用</strong></td>
+<td>❌ 每次都要重写</td>
+</tr>
+<tr>
+<td><strong>递归支持</strong></td>
+<td>✅ 支持 <code>WITH RECURSIVE</code></td>
+<td>❌ 不支持</td>
+</tr>
+<tr>
+<td><strong>MySQL 版本</strong></td>
+<td>8.0+</td>
+<td>所有版本</td>
+</tr>
+<tr>
+<td><strong>性能</strong></td>
+<td>基本等同（优化器可能自动物化）</td>
+<td>基本等同</td>
+</tr>
+<tr>
+<td><strong>作用范围</strong></td>
+<td>仅在当前语句中有效</td>
+<td>仅在所在位置有效</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>选择建议</strong>：</p>
+<ul>
+<li>简单的一次性嵌套 → <strong>子查询</strong>即可</li>
+<li>需要复用、嵌套层次深、或需要递归 → 用 <strong>CTE</strong></li>
+<li>需要兼容 MySQL 5.x → 只能用<strong>子查询</strong></li>
+</ul>
+</blockquote>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 同一个需求的三种写法对比</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 写法1：子查询嵌套（可读性差）</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> dept_id <span class="keyword">IN</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> dept_id <span class="keyword">FROM</span> (</span><br><span class="line">        <span class="keyword">SELECT</span> dept_id, <span class="built_in">AVG</span>(salary) <span class="keyword">AS</span> avg_sal</span><br><span class="line">        <span class="keyword">FROM</span> employee</span><br><span class="line">        <span class="keyword">WHERE</span> dept_id <span class="keyword">IS</span> <span class="keyword">NOT NULL</span></span><br><span class="line">        <span class="keyword">GROUP</span> <span class="keyword">BY</span> dept_id</span><br><span class="line">    ) t</span><br><span class="line">    <span class="keyword">WHERE</span> avg_sal <span class="operator">&gt;</span> <span class="number">13000</span></span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 写法2：CTE（可读性好）</span></span><br><span class="line"><span class="keyword">WITH</span> dept_avg <span class="keyword">AS</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> dept_id, <span class="built_in">AVG</span>(salary) <span class="keyword">AS</span> avg_sal</span><br><span class="line">    <span class="keyword">FROM</span> employee</span><br><span class="line">    <span class="keyword">WHERE</span> dept_id <span class="keyword">IS</span> <span class="keyword">NOT NULL</span></span><br><span class="line">    <span class="keyword">GROUP</span> <span class="keyword">BY</span> dept_id</span><br><span class="line">),</span><br><span class="line">high_avg_dept <span class="keyword">AS</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> dept_id <span class="keyword">FROM</span> dept_avg <span class="keyword">WHERE</span> avg_sal <span class="operator">&gt;</span> <span class="number">13000</span></span><br><span class="line">)</span><br><span class="line"><span class="keyword">SELECT</span> name, salary</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> dept_id <span class="keyword">IN</span> (<span class="keyword">SELECT</span> dept_id <span class="keyword">FROM</span> high_avg_dept);</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="七、子查询-vs-JOIN-改写"><a href="#七、子查询-vs-JOIN-改写" class="headerlink" title="七、子查询 vs JOIN 改写"></a>七、子查询 vs JOIN 改写</h2><p>很多子查询可以改写为 JOIN，通常 JOIN 的<strong>性能更好</strong>（优化器更容易优化），也<strong>更易读</strong>。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 子查询写法：查询参与了项目的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> id <span class="keyword">IN</span> (<span class="keyword">SELECT</span> emp_id <span class="keyword">FROM</span> emp_project);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- JOIN 改写：效果一样，但通常性能更好</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="keyword">DISTINCT</span> e.name</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">JOIN</span> emp_project ep <span class="keyword">ON</span> e.id <span class="operator">=</span> ep.emp_id;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 子查询写法：查询没有参与项目的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> id <span class="keyword">NOT</span> <span class="keyword">IN</span> (<span class="keyword">SELECT</span> emp_id <span class="keyword">FROM</span> emp_project);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- JOIN 改写：用 LEFT JOIN + IS NULL</span></span><br><span class="line"><span class="keyword">SELECT</span> e.name</span><br><span class="line"><span class="keyword">FROM</span> employee e</span><br><span class="line"><span class="keyword">LEFT</span> <span class="keyword">JOIN</span> emp_project ep <span class="keyword">ON</span> e.id <span class="operator">=</span> ep.emp_id</span><br><span class="line"><span class="keyword">WHERE</span> ep.emp_id <span class="keyword">IS</span> <span class="keyword">NULL</span>;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <strong>改写建议</strong>：</p>
+<ul>
+<li><code>IN (子查询)</code> → 可改写为 <code>JOIN</code>（注意去重）</li>
+<li><code>NOT IN (子查询)</code> → 可改写为 <code>LEFT JOIN ... WHERE IS NULL</code>（更安全，避免 NULL 问题）</li>
+<li><code>EXISTS (关联子查询)</code> → 可改写为 <code>JOIN</code></li>
+<li>不是所有子查询都适合改写，<strong>关联子查询中对分组计算的引用</strong>有时用子查询更自然</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="八、综合速查表"><a href="#八、综合速查表" class="headerlink" title="八、综合速查表"></a>八、综合速查表</h2><table>
+<thead>
+<tr>
+<th>需求</th>
+<th>推荐语法</th>
+<th>要点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>与单个值比较</td>
+<td>标量子查询 + <code>=</code>&#x2F;<code>&gt;</code>&#x2F;<code>&lt;</code></td>
+<td>子查询必须返回一行一列</td>
+</tr>
+<tr>
+<td>判断是否在集合中</td>
+<td><code>IN (子查询)</code></td>
+<td>简单直观</td>
+</tr>
+<tr>
+<td>判断集合中是否有匹配</td>
+<td><code>EXISTS (关联子查询)</code></td>
+<td>NOT EXISTS 更安全（无 NULL 陷阱）</td>
+</tr>
+<tr>
+<td>大于&#x2F;小于集合中的某个值</td>
+<td><code>&gt; ANY</code> &#x2F; <code>&lt; ANY</code></td>
+<td>ANY &#x3D; 任意一个满足即可</td>
+</tr>
+<tr>
+<td>大于&#x2F;小于集合中的所有值</td>
+<td><code>&gt; ALL</code> &#x2F; <code>&lt; ALL</code></td>
+<td>ALL &#x3D; 全部满足</td>
+</tr>
+<tr>
+<td>把子查询当临时表</td>
+<td><code>FROM (子查询) AS 别名</code></td>
+<td>派生表必须有别名</td>
+</tr>
+<tr>
+<td>提高复杂查询可读性</td>
+<td><code>WITH ... AS (...)</code></td>
+<td>CTE，MySQL 8.0+</td>
+</tr>
+<tr>
+<td>同一查询中复用结果集</td>
+<td><code>WITH</code> 多个 CTE</td>
+<td>逗号分隔，只写一个 WITH</td>
+</tr>
+<tr>
+<td>层级遍历 &#x2F; 树形结构</td>
+<td><code>WITH RECURSIVE</code></td>
+<td>递归 CTE，需有终止条件</td>
+</tr>
+<tr>
+<td>生成序列（日期&#x2F;数字）</td>
+<td><code>WITH RECURSIVE</code></td>
+<td>配合 UNION ALL</td>
+</tr>
+<tr>
+<td>查”有匹配的记录”</td>
+<td><code>IN</code> 或 <code>EXISTS</code></td>
+<td>小结果集用 IN，大结果集用 EXISTS</td>
+</tr>
+<tr>
+<td>查”无匹配的记录”</td>
+<td><code>NOT EXISTS</code> 或 <code>LEFT JOIN + IS NULL</code></td>
+<td>避免 NOT IN 的 NULL 陷阱</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="九、LeetCode-相关练习"><a href="#九、LeetCode-相关练习" class="headerlink" title="九、LeetCode 相关练习"></a>九、LeetCode 相关练习</h2><!-- 在此添加相关 LeetCode 题目链接 -->
+
+<blockquote>
+<p>🔗 后续待补充..</p>
+</blockquote>
+<hr>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><blockquote>
+<p>📚 本文内容参考以下资料整理：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.codefather.cn/course/1952312567451275265/section/1952312567975563265">编程导航 - 第 6 章：多表查询</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.codefather.cn/course/1952312567451275265/section/1952312568025894913">编程导航 - 第 7 章：合并查询</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.codefather.cn/course/1952312567451275265/section/1952312568080420866">编程导航 - 第 8 章：子查询</a></li>
+</ul>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer"><script src="https://giscus.app/client.js"
+        data-repo="2023Andrewyang/2023Andrewyang.github.io"
+        data-repo-id="R_kgDORLUYLQ"
+        data-category="General"
+        data-category-id="DIC_kwDORLUYLc4C2JUx"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="preferred_color_scheme"
+        data-lang="zh-CN"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+
+
+          <div class="post-tags">
+              <a href="/tags/SQL/" rel="tag"># SQL</a>
+              <a href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag"># 数据库</a>
+              <a href="/tags/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" rel="tag"># 学习笔记</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%A4%9A%E8%A1%A8%E8%BF%9E%E6%8E%A5%E4%B8%8E%E9%9B%86%E5%90%88%E6%9F%A5%E8%AF%A2/" rel="prev" title="SQL基础-多表连接与集合查询">
+                  <i class="fa fa-angle-left"></i> SQL基础-多表连接与集合查询
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">Andrew Yang</span>
+  </div>
+<div class="wordcount">
+  <span class="post-meta-item">
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-line"></i>
+    </span>
+    <span title="站点总字数">28k</span>
+  </span>
+  <span class="post-meta-item">
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">1:41</span>
+  </span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+</body>
+</html>

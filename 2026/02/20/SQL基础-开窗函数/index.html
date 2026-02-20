@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" integrity="sha256-VHqXKFhhMxcpubYf9xiWdCiojEbY9NexQ4jh8AxbvcM=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"2023andrewyang.github.io","root":"/","images":"/images","scheme":"Gemini","darkmode":true,"version":"8.27.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"default","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":true,"style":"mac"},"fold":{"enable":false,"height":500},"language":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="最近在复习 SQL 的开窗函数（Window Functions），这是 SQL 中非常强大的高级功能，能在保留每一行原始数据的同时进行分组计算，在数据分析场景中几乎无处不在。排名、累计求和、环比计算等需求都离不开它。内容不少，整理成一份速查手册方便日后回顾。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SQL基础-开窗函数">
+<meta property="og:url" content="https://2023andrewyang.github.io/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%BC%80%E7%AA%97%E5%87%BD%E6%95%B0/index.html">
+<meta property="og:site_name" content="Andrew&#39;s Blog">
+<meta property="og:description" content="最近在复习 SQL 的开窗函数（Window Functions），这是 SQL 中非常强大的高级功能，能在保留每一行原始数据的同时进行分组计算，在数据分析场景中几乎无处不在。排名、累计求和、环比计算等需求都离不开它。内容不少，整理成一份速查手册方便日后回顾。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-02-20T05:42:00.000Z">
+<meta property="article:modified_time" content="2026-02-20T05:50:50.000Z">
+<meta property="article:author" content="Andrew Yang">
+<meta property="article:tag" content="SQL">
+<meta property="article:tag" content="数据库">
+<meta property="article:tag" content="学习笔记">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://2023andrewyang.github.io/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%BC%80%E7%AA%97%E5%87%BD%E6%95%B0/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://2023andrewyang.github.io/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%BC%80%E7%AA%97%E5%87%BD%E6%95%B0/","path":"2026/02/20/SQL基础-开窗函数/","title":"SQL基础-开窗函数"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>SQL基础-开窗函数 | Andrew's Blog</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/motion.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Andrew's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E5%BC%80%E7%AA%97%E5%87%BD%E6%95%B0%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">一、开窗函数概述</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E4%BB%80%E4%B9%88%E6%98%AF%E5%BC%80%E7%AA%97%E5%87%BD%E6%95%B0"><span class="nav-number">1.1.</span> <span class="nav-text">1. 什么是开窗函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E2%AD%90-%E4%B8%8E-GROUP-BY-%E8%81%9A%E5%90%88%E5%87%BD%E6%95%B0%E7%9A%84%E5%8C%BA%E5%88%AB"><span class="nav-number">1.2.</span> <span class="nav-text">2. ⭐ 与 GROUP BY 聚合函数的区别</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E5%9F%BA%E6%9C%AC%E8%AF%AD%E6%B3%95"><span class="nav-number">1.3.</span> <span class="nav-text">3. 基本语法</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81PARTITION-BY-%E4%B8%8E-ORDER-BY"><span class="nav-number">2.</span> <span class="nav-text">二、PARTITION BY 与 ORDER BY</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-PARTITION-BY%EF%BC%88%E5%88%86%E5%8C%BA%EF%BC%89"><span class="nav-number">2.1.</span> <span class="nav-text">1. PARTITION BY（分区）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-ORDER-BY%EF%BC%88%E6%8E%92%E5%BA%8F%EF%BC%89"><span class="nav-number">2.2.</span> <span class="nav-text">2. ORDER BY（排序）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E7%BB%84%E5%90%88%E4%BD%BF%E7%94%A8"><span class="nav-number">2.3.</span> <span class="nav-text">3. 组合使用</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E8%81%9A%E5%90%88%E5%BC%80%E7%AA%97%E5%87%BD%E6%95%B0"><span class="nav-number">3.</span> <span class="nav-text">三、聚合开窗函数</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-SUM-OVER"><span class="nav-number">3.1.</span> <span class="nav-text">1. SUM() OVER()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-AVG-OVER"><span class="nav-number">3.2.</span> <span class="nav-text">2. AVG() OVER()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-COUNT-MAX-MIN-OVER"><span class="nav-number">3.3.</span> <span class="nav-text">3. COUNT() &#x2F; MAX() &#x2F; MIN() OVER()</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E7%AA%97%E5%8F%A3%E8%8C%83%E5%9B%B4%EF%BC%88Frame%EF%BC%89%E8%AF%A6%E8%A7%A3"><span class="nav-number">4.</span> <span class="nav-text">四、窗口范围（Frame）详解</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E5%9F%BA%E6%9C%AC%E8%AF%AD%E6%B3%95"><span class="nav-number">4.1.</span> <span class="nav-text">1. 基本语法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E9%BB%98%E8%AE%A4%E7%AA%97%E5%8F%A3%E8%8C%83%E5%9B%B4"><span class="nav-number">4.2.</span> <span class="nav-text">2. 默认窗口范围</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E5%B8%B8%E7%94%A8%E7%AA%97%E5%8F%A3%E8%8C%83%E5%9B%B4%E6%A8%A1%E5%BC%8F"><span class="nav-number">4.3.</span> <span class="nav-text">3. 常用窗口范围模式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-ROWS-vs-RANGE"><span class="nav-number">4.4.</span> <span class="nav-text">4. ROWS vs RANGE</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E2%AD%90-%E6%8E%92%E5%90%8D%E5%87%BD%E6%95%B0"><span class="nav-number">5.</span> <span class="nav-text">五、⭐ 排名函数</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-ROW-NUMBER"><span class="nav-number">5.1.</span> <span class="nav-text">1. ROW_NUMBER()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-RANK"><span class="nav-number">5.2.</span> <span class="nav-text">2. RANK()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-DENSE-RANK"><span class="nav-number">5.3.</span> <span class="nav-text">3. DENSE_RANK()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-%E2%AD%90-ROW-NUMBER-vs-RANK-vs-DENSE-RANK-%E5%AF%B9%E6%AF%94"><span class="nav-number">5.4.</span> <span class="nav-text">4. ⭐ ROW_NUMBER vs RANK vs DENSE_RANK 对比</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-NTILE-n"><span class="nav-number">5.5.</span> <span class="nav-text">5. NTILE(n)</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E2%AD%90-%E5%81%8F%E7%A7%BB%E5%87%BD%E6%95%B0%E4%B8%8E%E5%8F%96%E5%80%BC%E5%87%BD%E6%95%B0"><span class="nav-number">6.</span> <span class="nav-text">六、⭐ 偏移函数与取值函数</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-LAG-expr-offset-default"><span class="nav-number">6.1.</span> <span class="nav-text">1. LAG(expr, offset, default)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-LEAD-expr-offset-default"><span class="nav-number">6.2.</span> <span class="nav-text">2. LEAD(expr, offset, default)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-FIRST-VALUE-LAST-VALUE"><span class="nav-number">6.3.</span> <span class="nav-text">3. FIRST_VALUE() &#x2F; LAST_VALUE()</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81%E2%9A%A0%EF%B8%8F-%E5%BC%80%E7%AA%97%E5%87%BD%E6%95%B0%E4%B8%8D%E8%83%BD%E5%9C%A8-WHERE-%E4%B8%AD%E4%BD%BF%E7%94%A8"><span class="nav-number">7.</span> <span class="nav-text">七、⚠️ 开窗函数不能在 WHERE 中使用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AB%E3%80%81%E7%BB%BC%E5%90%88%E9%80%9F%E6%9F%A5%E8%A1%A8"><span class="nav-number">8.</span> <span class="nav-text">八、综合速查表</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B9%9D%E3%80%81LeetCode-%E7%9B%B8%E5%85%B3%E7%BB%83%E4%B9%A0"><span class="nav-number">9.</span> <span class="nav-text">九、LeetCode 相关练习</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-number">10.</span> <span class="nav-text">参考资料</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Andrew Yang"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Andrew Yang</p>
+  <div class="site-description" itemprop="description">记录技术、生活与学习</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">8</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">9</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://2023andrewyang.github.io/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%BC%80%E7%AA%97%E5%87%BD%E6%95%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Andrew Yang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Andrew's Blog">
+      <meta itemprop="description" content="记录技术、生活与学习">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="SQL基础-开窗函数 | Andrew's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          SQL基础-开窗函数
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2026-02-20 13:42:00" itemprop="dateCreated datePublished" datetime="2026-02-20T13:42:00+08:00">2026-02-20</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-02-20 13:50:50" itemprop="dateModified" datetime="2026-02-20T13:50:50+08:00">2026-02-20</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%8A%80%E6%9C%AF%E6%96%87%E7%AB%A0/" itemprop="url" rel="index"><span itemprop="name">技术文章</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-break"></span>
+    <span class="post-meta-item" title="本文字数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-file-word"></i>
+      </span>
+      <span class="post-meta-item-text">本文字数：</span>
+      <span>4.4k</span>
+    </span>
+    <span class="post-meta-item" title="阅读时长">
+      <span class="post-meta-item-icon">
+        <i class="far fa-clock"></i>
+      </span>
+      <span class="post-meta-item-text">阅读时长 &asymp;</span>
+      <span>16 分钟</span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>最近在复习 SQL 的开窗函数（Window Functions），这是 SQL 中非常强大的高级功能，能在<strong>保留每一行原始数据</strong>的同时进行分组计算，在数据分析场景中几乎无处不在。排名、累计求和、环比计算等需求都离不开它。内容不少，整理成一份速查手册方便日后回顾。</p>
+<hr>
+<span id="more"></span>
+
+<p>本文使用以下示例表来演示所有查询：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 员工表</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> employee (</span><br><span class="line">    id <span class="type">INT</span> <span class="keyword">PRIMARY KEY</span>,</span><br><span class="line">    name <span class="type">VARCHAR</span>(<span class="number">50</span>),</span><br><span class="line">    department <span class="type">VARCHAR</span>(<span class="number">50</span>),</span><br><span class="line">    salary <span class="type">DECIMAL</span>(<span class="number">10</span>, <span class="number">2</span>),</span><br><span class="line">    hire_date <span class="type">DATE</span></span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">INSERT INTO</span> employee <span class="keyword">VALUES</span></span><br><span class="line">(<span class="number">1</span>, <span class="string">&#x27;张三&#x27;</span>, <span class="string">&#x27;技术部&#x27;</span>, <span class="number">15000</span>, <span class="string">&#x27;2022-03-15&#x27;</span>),</span><br><span class="line">(<span class="number">2</span>, <span class="string">&#x27;李四&#x27;</span>, <span class="string">&#x27;技术部&#x27;</span>, <span class="number">18000</span>, <span class="string">&#x27;2020-07-01&#x27;</span>),</span><br><span class="line">(<span class="number">3</span>, <span class="string">&#x27;王五&#x27;</span>, <span class="string">&#x27;销售部&#x27;</span>, <span class="number">12000</span>, <span class="string">&#x27;2023-01-10&#x27;</span>),</span><br><span class="line">(<span class="number">4</span>, <span class="string">&#x27;赵六&#x27;</span>, <span class="string">&#x27;销售部&#x27;</span>, <span class="number">9000</span>,  <span class="string">&#x27;2023-06-20&#x27;</span>),</span><br><span class="line">(<span class="number">5</span>, <span class="string">&#x27;孙七&#x27;</span>, <span class="string">&#x27;人事部&#x27;</span>, <span class="number">11000</span>, <span class="string">&#x27;2021-09-05&#x27;</span>),</span><br><span class="line">(<span class="number">6</span>, <span class="string">&#x27;周八&#x27;</span>, <span class="string">&#x27;技术部&#x27;</span>, <span class="number">22000</span>, <span class="string">&#x27;2019-04-12&#x27;</span>),</span><br><span class="line">(<span class="number">7</span>, <span class="string">&#x27;吴九&#x27;</span>, <span class="string">&#x27;销售部&#x27;</span>, <span class="number">15000</span>, <span class="string">&#x27;2022-11-08&#x27;</span>),</span><br><span class="line">(<span class="number">8</span>, <span class="string">&#x27;郑十&#x27;</span>, <span class="string">&#x27;人事部&#x27;</span>, <span class="number">13000</span>, <span class="string">&#x27;2022-05-18&#x27;</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 月度销售记录表</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> monthly_sales (</span><br><span class="line">    id <span class="type">INT</span> <span class="keyword">PRIMARY KEY</span> AUTO_INCREMENT,</span><br><span class="line">    salesperson <span class="type">VARCHAR</span>(<span class="number">50</span>),</span><br><span class="line">    <span class="keyword">month</span> <span class="type">VARCHAR</span>(<span class="number">7</span>),</span><br><span class="line">    amount <span class="type">DECIMAL</span>(<span class="number">10</span>, <span class="number">2</span>)</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">INSERT INTO</span> monthly_sales <span class="keyword">VALUES</span></span><br><span class="line">(<span class="number">1</span>,  <span class="string">&#x27;王五&#x27;</span>, <span class="string">&#x27;2025-01&#x27;</span>, <span class="number">30000</span>),</span><br><span class="line">(<span class="number">2</span>,  <span class="string">&#x27;赵六&#x27;</span>, <span class="string">&#x27;2025-01&#x27;</span>, <span class="number">25000</span>),</span><br><span class="line">(<span class="number">3</span>,  <span class="string">&#x27;吴九&#x27;</span>, <span class="string">&#x27;2025-01&#x27;</span>, <span class="number">35000</span>),</span><br><span class="line">(<span class="number">4</span>,  <span class="string">&#x27;王五&#x27;</span>, <span class="string">&#x27;2025-02&#x27;</span>, <span class="number">28000</span>),</span><br><span class="line">(<span class="number">5</span>,  <span class="string">&#x27;赵六&#x27;</span>, <span class="string">&#x27;2025-02&#x27;</span>, <span class="number">32000</span>),</span><br><span class="line">(<span class="number">6</span>,  <span class="string">&#x27;吴九&#x27;</span>, <span class="string">&#x27;2025-02&#x27;</span>, <span class="number">40000</span>),</span><br><span class="line">(<span class="number">7</span>,  <span class="string">&#x27;王五&#x27;</span>, <span class="string">&#x27;2025-03&#x27;</span>, <span class="number">35000</span>),</span><br><span class="line">(<span class="number">8</span>,  <span class="string">&#x27;赵六&#x27;</span>, <span class="string">&#x27;2025-03&#x27;</span>, <span class="number">28000</span>),</span><br><span class="line">(<span class="number">9</span>,  <span class="string">&#x27;吴九&#x27;</span>, <span class="string">&#x27;2025-03&#x27;</span>, <span class="number">38000</span>),</span><br><span class="line">(<span class="number">10</span>, <span class="string">&#x27;王五&#x27;</span>, <span class="string">&#x27;2025-04&#x27;</span>, <span class="number">42000</span>),</span><br><span class="line">(<span class="number">11</span>, <span class="string">&#x27;赵六&#x27;</span>, <span class="string">&#x27;2025-04&#x27;</span>, <span class="number">30000</span>),</span><br><span class="line">(<span class="number">12</span>, <span class="string">&#x27;吴九&#x27;</span>, <span class="string">&#x27;2025-04&#x27;</span>, <span class="number">45000</span>);</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <strong>表说明</strong>：</p>
+<ul>
+<li><code>employee</code> 表：8 名员工分布在 3 个部门，用于演示排名、分组计算等</li>
+<li><code>monthly_sales</code> 表：3 位销售人员 4 个月的业绩记录，用于演示累计求和、环比分析等</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="一、开窗函数概述"><a href="#一、开窗函数概述" class="headerlink" title="一、开窗函数概述"></a>一、开窗函数概述</h2><h3 id="1-什么是开窗函数"><a href="#1-什么是开窗函数" class="headerlink" title="1. 什么是开窗函数"></a>1. 什么是开窗函数</h3><p>开窗函数（Window Functions）可以对结果集的一个子集（称为”<strong>窗口</strong>“）进行计算，<strong>不需要 GROUP BY 就能做聚合计算，而且不会减少行数</strong>。每一行都能”看到”自己所在窗口内的其他行，并基于它们进行计算。</p>
+<blockquote>
+<p>⚠️ <strong>版本要求</strong>：开窗函数需要 <strong>MySQL 8.0+</strong> 才支持。</p>
+</blockquote>
+<h3 id="2-⭐-与-GROUP-BY-聚合函数的区别"><a href="#2-⭐-与-GROUP-BY-聚合函数的区别" class="headerlink" title="2. ⭐ 与 GROUP BY 聚合函数的区别"></a>2. ⭐ 与 GROUP BY 聚合函数的区别</h3><p>这是理解开窗函数最关键的一点：</p>
+<table>
+<thead>
+<tr>
+<th>对比维度</th>
+<th>GROUP BY + 聚合函数</th>
+<th>开窗函数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>行数变化</strong></td>
+<td>多行合并为一行</td>
+<td>✅ <strong>保留所有原始行</strong></td>
+</tr>
+<tr>
+<td><strong>原始数据</strong></td>
+<td>聚合后看不到明细</td>
+<td>✅ 聚合结果和明细<strong>并存</strong></td>
+</tr>
+<tr>
+<td><strong>使用位置</strong></td>
+<td>需要 GROUP BY 子句</td>
+<td>使用 OVER() 子句</td>
+</tr>
+</tbody></table>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- GROUP BY：按部门求平均工资 → 只有 3 行</span></span><br><span class="line"><span class="keyword">SELECT</span> department, <span class="built_in">AVG</span>(salary) <span class="keyword">AS</span> avg_salary</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> department;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>department</th>
+<th>avg_salary</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>技术部</td>
+<td>18333.33</td>
+</tr>
+<tr>
+<td>销售部</td>
+<td>12000.00</td>
+</tr>
+<tr>
+<td>人事部</td>
+<td>12000.00</td>
+</tr>
+</tbody></table>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 开窗函数：每个员工都保留，同时附上部门平均工资 → 仍然 8 行</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name, department, salary,</span><br><span class="line">    <span class="built_in">AVG</span>(salary) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> department) <span class="keyword">AS</span> dept_avg</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>department</th>
+<th>salary</th>
+<th>dept_avg</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>张三</td>
+<td>技术部</td>
+<td>15000</td>
+<td>18333.33</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>技术部</td>
+<td>18000</td>
+<td>18333.33</td>
+</tr>
+<tr>
+<td>周八</td>
+<td>技术部</td>
+<td>22000</td>
+<td>18333.33</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>销售部</td>
+<td>12000</td>
+<td>12000.00</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>销售部</td>
+<td>9000</td>
+<td>12000.00</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>销售部</td>
+<td>15000</td>
+<td>12000.00</td>
+</tr>
+<tr>
+<td>孙七</td>
+<td>人事部</td>
+<td>11000</td>
+<td>12000.00</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>人事部</td>
+<td>13000</td>
+<td>12000.00</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>⭐ <strong>核心区别</strong>：GROUP BY 把多行”压缩”成一行，开窗函数在每行”旁边”附加聚合结果。</p>
+</blockquote>
+<h3 id="3-基本语法"><a href="#3-基本语法" class="headerlink" title="3. 基本语法"></a>3. 基本语法</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">窗口函数() <span class="keyword">OVER</span> (</span><br><span class="line">    [<span class="keyword">PARTITION</span> <span class="keyword">BY</span> 分区列]    <span class="comment">-- 可选：按什么分组</span></span><br><span class="line">    [<span class="keyword">ORDER</span> <span class="keyword">BY</span> 排序列]        <span class="comment">-- 可选：组内按什么排序</span></span><br><span class="line">    [窗口范围]               <span class="comment">-- 可选：计算范围（Frame）</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p><strong>常见的开窗函数类型</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>函数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>聚合函数</td>
+<td><code>SUM</code>、<code>AVG</code>、<code>COUNT</code>、<code>MAX</code>、<code>MIN</code></td>
+<td>配合 OVER() 使用</td>
+</tr>
+<tr>
+<td>排名函数</td>
+<td><code>ROW_NUMBER</code>、<code>RANK</code>、<code>DENSE_RANK</code>、<code>NTILE</code></td>
+<td>为行编号或排名</td>
+</tr>
+<tr>
+<td>偏移函数</td>
+<td><code>LAG</code>、<code>LEAD</code></td>
+<td>访问前&#x2F;后行的数据</td>
+</tr>
+<tr>
+<td>取值函数</td>
+<td><code>FIRST_VALUE</code>、<code>LAST_VALUE</code>、<code>NTH_VALUE</code></td>
+<td>取窗口中特定位置的值</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="二、PARTITION-BY-与-ORDER-BY"><a href="#二、PARTITION-BY-与-ORDER-BY" class="headerlink" title="二、PARTITION BY 与 ORDER BY"></a>二、PARTITION BY 与 ORDER BY</h2><p><code>PARTITION BY</code> 和 <code>ORDER BY</code> 是开窗函数中最重要的两个子句，它们决定了”窗口”的形状。</p>
+<h3 id="1-PARTITION-BY（分区）"><a href="#1-PARTITION-BY（分区）" class="headerlink" title="1. PARTITION BY（分区）"></a>1. <code>PARTITION BY</code>（分区）</h3><p>将数据按指定列分成多个<strong>分区</strong>，开窗函数在每个分区内<strong>独立计算</strong>。类似 GROUP BY 的分组，但不合并行。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 计算每个员工的工资占其部门总工资的百分比</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name, department, salary,</span><br><span class="line">    <span class="built_in">SUM</span>(salary) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> department) <span class="keyword">AS</span> dept_total,</span><br><span class="line">    ROUND(salary <span class="operator">/</span> <span class="built_in">SUM</span>(salary) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> department) <span class="operator">*</span> <span class="number">100</span>, <span class="number">2</span>) <span class="keyword">AS</span> pct</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>department</th>
+<th>salary</th>
+<th>dept_total</th>
+<th>pct</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>张三</td>
+<td>技术部</td>
+<td>15000</td>
+<td>55000</td>
+<td>27.27</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>技术部</td>
+<td>18000</td>
+<td>55000</td>
+<td>32.73</td>
+</tr>
+<tr>
+<td>周八</td>
+<td>技术部</td>
+<td>22000</td>
+<td>55000</td>
+<td>40.00</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>销售部</td>
+<td>12000</td>
+<td>36000</td>
+<td>33.33</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>销售部</td>
+<td>9000</td>
+<td>36000</td>
+<td>25.00</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>销售部</td>
+<td>15000</td>
+<td>36000</td>
+<td>41.67</td>
+</tr>
+<tr>
+<td>孙七</td>
+<td>人事部</td>
+<td>11000</td>
+<td>24000</td>
+<td>45.83</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>人事部</td>
+<td>13000</td>
+<td>24000</td>
+<td>54.17</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>省略 PARTITION BY</strong>：如果不写 <code>PARTITION BY</code>，整个结果集被视为<strong>一个分区</strong>。</p>
+</blockquote>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 不分区：计算每个人工资占全公司总工资的百分比</span></span><br><span class="line"><span class="keyword">SELECT</span> name, salary,</span><br><span class="line">    ROUND(salary <span class="operator">/</span> <span class="built_in">SUM</span>(salary) <span class="keyword">OVER</span>() <span class="operator">*</span> <span class="number">100</span>, <span class="number">2</span>) <span class="keyword">AS</span> company_pct</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-ORDER-BY（排序）"><a href="#2-ORDER-BY（排序）" class="headerlink" title="2. ORDER BY（排序）"></a>2. <code>ORDER BY</code>（排序）</h3><p>指定分区内的<strong>行排列顺序</strong>，这对排名函数和累计计算至关重要。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 按月份排序，计算累计销售额</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    salesperson, <span class="keyword">month</span>, amount,</span><br><span class="line">    <span class="built_in">SUM</span>(amount) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> salesperson <span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">month</span>) <span class="keyword">AS</span> running_total</span><br><span class="line"><span class="keyword">FROM</span> monthly_sales;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>salesperson</th>
+<th>month</th>
+<th>amount</th>
+<th>running_total</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>吴九</td>
+<td>2025-01</td>
+<td>35000</td>
+<td>35000</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>2025-02</td>
+<td>40000</td>
+<td>75000</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>2025-03</td>
+<td>38000</td>
+<td>113000</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>2025-04</td>
+<td>45000</td>
+<td>158000</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>2025-01</td>
+<td>30000</td>
+<td>30000</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>2025-02</td>
+<td>28000</td>
+<td>58000</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>2025-03</td>
+<td>35000</td>
+<td>93000</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>2025-04</td>
+<td>42000</td>
+<td>135000</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>2025-01</td>
+<td>25000</td>
+<td>25000</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>2025-02</td>
+<td>32000</td>
+<td>57000</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>2025-03</td>
+<td>28000</td>
+<td>85000</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>2025-04</td>
+<td>30000</td>
+<td>115000</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>⚠️ <strong>重要</strong>：在聚合开窗函数中加了 <code>ORDER BY</code> 后，默认的计算范围会变成<strong>从分区开头到当前行</strong>（即累计计算），而不是整个分区！这一点很容易忽略，后面”窗口范围”章节会详细说明。</p>
+</blockquote>
+<h3 id="3-组合使用"><a href="#3-组合使用" class="headerlink" title="3. 组合使用"></a>3. 组合使用</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- PARTITION BY + ORDER BY：每个销售人员按月排序的累计业绩</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    salesperson, <span class="keyword">month</span>, amount,</span><br><span class="line">    <span class="built_in">SUM</span>(amount) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> salesperson <span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">month</span>) <span class="keyword">AS</span> person_running,</span><br><span class="line">    <span class="built_in">SUM</span>(amount) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> salesperson) <span class="keyword">AS</span> person_total</span><br><span class="line"><span class="keyword">FROM</span> monthly_sales;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <strong>对比理解</strong>：</p>
+<ul>
+<li>只有 <code>PARTITION BY</code>（无 ORDER BY）→ 整个分区的汇总值（每行相同）</li>
+<li><code>PARTITION BY</code> + <code>ORDER BY</code> → 分区内按顺序的<strong>累计值</strong>（逐行递增）</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="三、聚合开窗函数"><a href="#三、聚合开窗函数" class="headerlink" title="三、聚合开窗函数"></a>三、聚合开窗函数</h2><p>常见的聚合函数 <code>SUM</code>、<code>AVG</code>、<code>COUNT</code>、<code>MAX</code>、<code>MIN</code> 都可以搭配 <code>OVER()</code> 使用。</p>
+<h3 id="1-SUM-OVER"><a href="#1-SUM-OVER" class="headerlink" title="1. SUM() OVER()"></a>1. <code>SUM() OVER()</code></h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 1. 全局总和（每行都显示相同的总数）</span></span><br><span class="line"><span class="keyword">SELECT</span> salesperson, <span class="keyword">month</span>, amount,</span><br><span class="line">    <span class="built_in">SUM</span>(amount) <span class="keyword">OVER</span>() <span class="keyword">AS</span> grand_total</span><br><span class="line"><span class="keyword">FROM</span> monthly_sales;</span><br><span class="line"><span class="comment">-- grand_total 每行都是 408000</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 2. 分区总和</span></span><br><span class="line"><span class="keyword">SELECT</span> salesperson, <span class="keyword">month</span>, amount,</span><br><span class="line">    <span class="built_in">SUM</span>(amount) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> salesperson) <span class="keyword">AS</span> person_total</span><br><span class="line"><span class="keyword">FROM</span> monthly_sales;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 3. 累计总和（加 ORDER BY 后变成逐行累加）</span></span><br><span class="line"><span class="keyword">SELECT</span> salesperson, <span class="keyword">month</span>, amount,</span><br><span class="line">    <span class="built_in">SUM</span>(amount) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> salesperson <span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">month</span>) <span class="keyword">AS</span> running_total</span><br><span class="line"><span class="keyword">FROM</span> monthly_sales;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-AVG-OVER"><a href="#2-AVG-OVER" class="headerlink" title="2. AVG() OVER()"></a>2. <code>AVG() OVER()</code></h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 每个员工的工资与部门平均工资的差值</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name, department, salary,</span><br><span class="line">    ROUND(<span class="built_in">AVG</span>(salary) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> department), <span class="number">2</span>) <span class="keyword">AS</span> dept_avg,</span><br><span class="line">    salary <span class="operator">-</span> ROUND(<span class="built_in">AVG</span>(salary) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> department), <span class="number">2</span>) <span class="keyword">AS</span> diff</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>department</th>
+<th>salary</th>
+<th>dept_avg</th>
+<th>diff</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>张三</td>
+<td>技术部</td>
+<td>15000</td>
+<td>18333.33</td>
+<td>-3333.33</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>技术部</td>
+<td>18000</td>
+<td>18333.33</td>
+<td>-333.33</td>
+</tr>
+<tr>
+<td>周八</td>
+<td>技术部</td>
+<td>22000</td>
+<td>18333.33</td>
+<td>3666.67</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>销售部</td>
+<td>12000</td>
+<td>12000.00</td>
+<td>0.00</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>销售部</td>
+<td>9000</td>
+<td>12000.00</td>
+<td>-3000.00</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>销售部</td>
+<td>15000</td>
+<td>12000.00</td>
+<td>3000.00</td>
+</tr>
+<tr>
+<td>孙七</td>
+<td>人事部</td>
+<td>11000</td>
+<td>12000.00</td>
+<td>-1000.00</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>人事部</td>
+<td>13000</td>
+<td>12000.00</td>
+<td>1000.00</td>
+</tr>
+</tbody></table>
+<h3 id="3-COUNT-MAX-MIN-OVER"><a href="#3-COUNT-MAX-MIN-OVER" class="headerlink" title="3. COUNT() / MAX() / MIN() OVER()"></a>3. <code>COUNT() / MAX() / MIN() OVER()</code></h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 每个部门的人数、最高工资、最低工资</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name, department, salary,</span><br><span class="line">    <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> department) <span class="keyword">AS</span> dept_count,</span><br><span class="line">    <span class="built_in">MAX</span>(salary) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> department) <span class="keyword">AS</span> dept_max,</span><br><span class="line">    <span class="built_in">MIN</span>(salary) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> department) <span class="keyword">AS</span> dept_min</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="四、窗口范围（Frame）详解"><a href="#四、窗口范围（Frame）详解" class="headerlink" title="四、窗口范围（Frame）详解"></a>四、窗口范围（Frame）详解</h2><p>窗口范围（Frame）定义了当前行参与计算的”可见范围”。这是开窗函数中<strong>最容易被忽略但非常重要</strong>的概念。</p>
+<h3 id="1-基本语法"><a href="#1-基本语法" class="headerlink" title="1. 基本语法"></a>1. 基本语法</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ROWS</span> <span class="keyword">BETWEEN</span> 起点 <span class="keyword">AND</span> 终点</span><br></pre></td></tr></table></figure>
+
+<p><strong>常用的起点&#x2F;终点关键字</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>关键字</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>UNBOUNDED PRECEDING</code></td>
+<td>分区的<strong>第一行</strong></td>
+</tr>
+<tr>
+<td><code>N PRECEDING</code></td>
+<td>当前行的<strong>前 N 行</strong></td>
+</tr>
+<tr>
+<td><code>CURRENT ROW</code></td>
+<td><strong>当前行</strong></td>
+</tr>
+<tr>
+<td><code>N FOLLOWING</code></td>
+<td>当前行的<strong>后 N 行</strong></td>
+</tr>
+<tr>
+<td><code>UNBOUNDED FOLLOWING</code></td>
+<td>分区的<strong>最后一行</strong></td>
+</tr>
+</tbody></table>
+<h3 id="2-默认窗口范围"><a href="#2-默认窗口范围" class="headerlink" title="2. 默认窗口范围"></a>2. 默认窗口范围</h3><blockquote>
+<p>⚠️ <strong>易错点</strong>：有无 <code>ORDER BY</code> 会导致默认窗口范围不同！</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>情况</th>
+<th>默认窗口范围</th>
+<th>效果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>无 ORDER BY</td>
+<td><code>ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING</code></td>
+<td>整个分区</td>
+</tr>
+<tr>
+<td>有 ORDER BY</td>
+<td><code>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code></td>
+<td>分区开头到当前行</td>
+</tr>
+</tbody></table>
+<p>这就是为什么加了 <code>ORDER BY</code> 后，<code>SUM() OVER()</code> 会变成<strong>累计求和</strong>的原因。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 无 ORDER BY → 整个分区的总和（每行一样）</span></span><br><span class="line"><span class="keyword">SELECT</span> salesperson, <span class="keyword">month</span>, amount,</span><br><span class="line">    <span class="built_in">SUM</span>(amount) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> salesperson) <span class="keyword">AS</span> total</span><br><span class="line"><span class="keyword">FROM</span> monthly_sales;</span><br><span class="line"><span class="comment">-- 王五: 135000, 135000, 135000, 135000</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 有 ORDER BY → 累计求和（逐行递增）</span></span><br><span class="line"><span class="keyword">SELECT</span> salesperson, <span class="keyword">month</span>, amount,</span><br><span class="line">    <span class="built_in">SUM</span>(amount) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> salesperson <span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">month</span>) <span class="keyword">AS</span> <span class="keyword">running</span></span><br><span class="line"><span class="keyword">FROM</span> monthly_sales;</span><br><span class="line"><span class="comment">-- 王五: 30000, 58000, 93000, 135000</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="3-常用窗口范围模式"><a href="#3-常用窗口范围模式" class="headerlink" title="3. 常用窗口范围模式"></a>3. 常用窗口范围模式</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 移动平均（前1行 + 当前行 + 后1行 = 3行滑动窗口）</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    salesperson, <span class="keyword">month</span>, amount,</span><br><span class="line">    ROUND(<span class="built_in">AVG</span>(amount) <span class="keyword">OVER</span>(</span><br><span class="line">        <span class="keyword">PARTITION</span> <span class="keyword">BY</span> salesperson</span><br><span class="line">        <span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">month</span></span><br><span class="line">        <span class="keyword">ROWS</span> <span class="keyword">BETWEEN</span> <span class="number">1</span> PRECEDING <span class="keyword">AND</span> <span class="number">1</span> FOLLOWING</span><br><span class="line">    ), <span class="number">2</span>) <span class="keyword">AS</span> moving_avg_3</span><br><span class="line"><span class="keyword">FROM</span> monthly_sales</span><br><span class="line"><span class="keyword">WHERE</span> salesperson <span class="operator">=</span> <span class="string">&#x27;王五&#x27;</span>;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>salesperson</th>
+<th>month</th>
+<th>amount</th>
+<th>moving_avg_3</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>王五</td>
+<td>2025-01</td>
+<td>30000</td>
+<td>29000.00</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>2025-02</td>
+<td>28000</td>
+<td>31000.00</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>2025-03</td>
+<td>35000</td>
+<td>35000.00</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>2025-04</td>
+<td>42000</td>
+<td>38500.00</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>解析</strong>：</p>
+<ul>
+<li>2025-01：无前一行 → AVG(30000, 28000) &#x3D; 29000</li>
+<li>2025-02：AVG(30000, 28000, 35000) &#x3D; 31000</li>
+<li>2025-03：AVG(28000, 35000, 42000) &#x3D; 35000</li>
+<li>2025-04：无后一行 → AVG(35000, 42000) &#x3D; 38500</li>
+</ul>
+</blockquote>
+<p><strong>其他常用模式</strong>：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 从分区开头到当前行（默认，累计计算）</span></span><br><span class="line"><span class="keyword">ROWS</span> <span class="keyword">BETWEEN</span> UNBOUNDED PRECEDING <span class="keyword">AND</span> <span class="keyword">CURRENT</span> <span class="type">ROW</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 整个分区（不管 ORDER BY）</span></span><br><span class="line"><span class="keyword">ROWS</span> <span class="keyword">BETWEEN</span> UNBOUNDED PRECEDING <span class="keyword">AND</span> UNBOUNDED FOLLOWING</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 前 2 行到当前行（3 行窗口）</span></span><br><span class="line"><span class="keyword">ROWS</span> <span class="keyword">BETWEEN</span> <span class="number">2</span> PRECEDING <span class="keyword">AND</span> <span class="keyword">CURRENT</span> <span class="type">ROW</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 当前行到后 2 行</span></span><br><span class="line"><span class="keyword">ROWS</span> <span class="keyword">BETWEEN</span> <span class="keyword">CURRENT</span> <span class="type">ROW</span> <span class="keyword">AND</span> <span class="number">2</span> FOLLOWING</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-ROWS-vs-RANGE"><a href="#4-ROWS-vs-RANGE" class="headerlink" title="4. ROWS vs RANGE"></a>4. <code>ROWS</code> vs <code>RANGE</code></h3><blockquote>
+<p>⚠️ <strong>注意</strong>：<code>ROWS</code> 按<strong>物理行数</strong>计算，<code>RANGE</code> 按<strong>值的范围</strong>计算。当存在相同排序值时，两者结果可能不同。</p>
+</blockquote>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- ROWS：严格按行数，相同值的行也分开处理</span></span><br><span class="line"><span class="keyword">ROWS</span> <span class="keyword">BETWEEN</span> UNBOUNDED PRECEDING <span class="keyword">AND</span> <span class="keyword">CURRENT</span> <span class="type">ROW</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- RANGE：相同排序值的行被视为同一组，一起计算</span></span><br><span class="line"><span class="keyword">RANGE</span> <span class="keyword">BETWEEN</span> UNBOUNDED PRECEDING <span class="keyword">AND</span> <span class="keyword">CURRENT</span> <span class="type">ROW</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <strong>建议</strong>：大多数情况下使用 <code>ROWS</code> 更直观、可预测。<code>RANGE</code> 在处理相同排序值时有特殊行为，使用时要注意。</p>
+</blockquote>
+<hr>
+<h2 id="五、⭐-排名函数"><a href="#五、⭐-排名函数" class="headerlink" title="五、⭐ 排名函数"></a>五、⭐ 排名函数</h2><p>排名函数是开窗函数中使用频率最高的一类，面对”Top N”、”排名第几”等需求时必不可少。</p>
+<h3 id="1-ROW-NUMBER"><a href="#1-ROW-NUMBER" class="headerlink" title="1. ROW_NUMBER()"></a>1. <code>ROW_NUMBER()</code></h3><p>为分区内的每一行分配一个<strong>唯一的连续序号</strong>（1, 2, 3, …），即使值相同，序号也不同。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name, department, salary,</span><br><span class="line">    <span class="built_in">ROW_NUMBER</span>() <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> department <span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span>) <span class="keyword">AS</span> rn</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>department</th>
+<th>salary</th>
+<th>rn</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>周八</td>
+<td>技术部</td>
+<td>22000</td>
+<td>1</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>技术部</td>
+<td>18000</td>
+<td>2</td>
+</tr>
+<tr>
+<td>张三</td>
+<td>技术部</td>
+<td>15000</td>
+<td>3</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>销售部</td>
+<td>15000</td>
+<td>1</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>销售部</td>
+<td>12000</td>
+<td>2</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>销售部</td>
+<td>9000</td>
+<td>3</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>人事部</td>
+<td>13000</td>
+<td>1</td>
+</tr>
+<tr>
+<td>孙七</td>
+<td>人事部</td>
+<td>11000</td>
+<td>2</td>
+</tr>
+</tbody></table>
+<p><strong>⭐ 经典用法：取每组的 Top N</strong></p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 取每个部门工资最高的员工</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> (</span><br><span class="line">    <span class="keyword">SELECT</span></span><br><span class="line">        name, department, salary,</span><br><span class="line">        <span class="built_in">ROW_NUMBER</span>() <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> department <span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span>) <span class="keyword">AS</span> rn</span><br><span class="line">    <span class="keyword">FROM</span> employee</span><br><span class="line">) t</span><br><span class="line"><span class="keyword">WHERE</span> rn <span class="operator">=</span> <span class="number">1</span>;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>department</th>
+<th>salary</th>
+<th>rn</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>周八</td>
+<td>技术部</td>
+<td>22000</td>
+<td>1</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>销售部</td>
+<td>15000</td>
+<td>1</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>人事部</td>
+<td>13000</td>
+<td>1</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>⚠️ <strong>注意</strong>：<code>ROW_NUMBER()</code> 在值相同时的排序是<strong>不确定的</strong>（相同值的行谁排前面取决于数据库实现）。如果需要确定性排序，应在 <code>ORDER BY</code> 中加入额外的列（如主键）。</p>
+</blockquote>
+<h3 id="2-RANK"><a href="#2-RANK" class="headerlink" title="2. RANK()"></a>2. <code>RANK()</code></h3><p>相同值获得<strong>相同排名</strong>，但后续排名会<strong>跳跃</strong>（如 1, 2, 2, <strong>4</strong>）。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name, salary,</span><br><span class="line">    <span class="built_in">RANK</span>() <span class="keyword">OVER</span>(<span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span>) <span class="keyword">AS</span> rnk</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>salary</th>
+<th>rnk</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>周八</td>
+<td>22000</td>
+<td>1</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>18000</td>
+<td>2</td>
+</tr>
+<tr>
+<td>张三</td>
+<td>15000</td>
+<td>3</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>15000</td>
+<td>3</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>13000</td>
+<td><strong>5</strong></td>
+</tr>
+<tr>
+<td>王五</td>
+<td>12000</td>
+<td>6</td>
+</tr>
+<tr>
+<td>孙七</td>
+<td>11000</td>
+<td>7</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>9000</td>
+<td>8</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>注意：张三和吴九并列第 3，下一名直接跳到第 <strong>5</strong>（跳过了 4）。</p>
+</blockquote>
+<h3 id="3-DENSE-RANK"><a href="#3-DENSE-RANK" class="headerlink" title="3. DENSE_RANK()"></a>3. <code>DENSE_RANK()</code></h3><p>相同值获得<strong>相同排名</strong>，后续排名<strong>不跳跃</strong>（如 1, 2, 2, <strong>3</strong>）。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name, salary,</span><br><span class="line">    <span class="built_in">DENSE_RANK</span>() <span class="keyword">OVER</span>(<span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span>) <span class="keyword">AS</span> drnk</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>salary</th>
+<th>drnk</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>周八</td>
+<td>22000</td>
+<td>1</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>18000</td>
+<td>2</td>
+</tr>
+<tr>
+<td>张三</td>
+<td>15000</td>
+<td>3</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>15000</td>
+<td>3</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>13000</td>
+<td><strong>4</strong></td>
+</tr>
+<tr>
+<td>王五</td>
+<td>12000</td>
+<td>5</td>
+</tr>
+<tr>
+<td>孙七</td>
+<td>11000</td>
+<td>6</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>9000</td>
+<td>7</td>
+</tr>
+</tbody></table>
+<h3 id="4-⭐-ROW-NUMBER-vs-RANK-vs-DENSE-RANK-对比"><a href="#4-⭐-ROW-NUMBER-vs-RANK-vs-DENSE-RANK-对比" class="headerlink" title="4. ⭐ ROW_NUMBER vs RANK vs DENSE_RANK 对比"></a>4. ⭐ <code>ROW_NUMBER</code> vs <code>RANK</code> vs <code>DENSE_RANK</code> 对比</h3><p>将三个函数放在一起对比，差异一目了然：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name, salary,</span><br><span class="line">    <span class="built_in">ROW_NUMBER</span>() <span class="keyword">OVER</span>(<span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span>) <span class="keyword">AS</span> row_num,</span><br><span class="line">    <span class="built_in">RANK</span>()       <span class="keyword">OVER</span>(<span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span>) <span class="keyword">AS</span> rnk,</span><br><span class="line">    <span class="built_in">DENSE_RANK</span>() <span class="keyword">OVER</span>(<span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span>) <span class="keyword">AS</span> dense_rnk</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>salary</th>
+<th>row_num</th>
+<th>rnk</th>
+<th>dense_rnk</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>周八</td>
+<td>22000</td>
+<td>1</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>18000</td>
+<td>2</td>
+<td>2</td>
+<td>2</td>
+</tr>
+<tr>
+<td>张三</td>
+<td>15000</td>
+<td>3</td>
+<td>3</td>
+<td>3</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>15000</td>
+<td>4</td>
+<td>3</td>
+<td>3</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>13000</td>
+<td>5</td>
+<td><strong>5</strong></td>
+<td><strong>4</strong></td>
+</tr>
+<tr>
+<td>王五</td>
+<td>12000</td>
+<td>6</td>
+<td>6</td>
+<td>5</td>
+</tr>
+<tr>
+<td>孙七</td>
+<td>11000</td>
+<td>7</td>
+<td>7</td>
+<td>6</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>9000</td>
+<td>8</td>
+<td>8</td>
+<td>7</td>
+</tr>
+</tbody></table>
+<table>
+<thead>
+<tr>
+<th>函数</th>
+<th>并列处理</th>
+<th>排名跳跃</th>
+<th>典型场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ROW_NUMBER</code></td>
+<td>❌ 不并列（每行唯一）</td>
+<td>不涉及</td>
+<td>分页、Top N、去重</td>
+</tr>
+<tr>
+<td><code>RANK</code></td>
+<td>✅ 并列</td>
+<td>✅ 会跳跃</td>
+<td>竞赛排名（第3名两人，下一个是第5名）</td>
+</tr>
+<tr>
+<td><code>DENSE_RANK</code></td>
+<td>✅ 并列</td>
+<td>❌ 不跳跃</td>
+<td>连续排名（第3名两人，下一个是第4名）</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>选择建议</strong>：</p>
+<ul>
+<li>需要<strong>唯一编号</strong> → <code>ROW_NUMBER</code>（分页、去重取一）</li>
+<li>需要<strong>真实名次</strong>（如比赛排名）→ <code>RANK</code></li>
+<li>需要<strong>连续等级</strong>（如工资等级）→ <code>DENSE_RANK</code></li>
+</ul>
+</blockquote>
+<h3 id="5-NTILE-n"><a href="#5-NTILE-n" class="headerlink" title="5. NTILE(n)"></a>5. <code>NTILE(n)</code></h3><p>将分区内的行<strong>均分为 n 组</strong>，返回组号（1 到 n）。常用于”前 25%”、”四分位”等场景。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 将员工按工资分成 4 组（四分位）</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name, salary,</span><br><span class="line">    <span class="built_in">NTILE</span>(<span class="number">4</span>) <span class="keyword">OVER</span>(<span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span>) <span class="keyword">AS</span> quartile</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>salary</th>
+<th>quartile</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>周八</td>
+<td>22000</td>
+<td>1</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>18000</td>
+<td>1</td>
+</tr>
+<tr>
+<td>张三</td>
+<td>15000</td>
+<td>2</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>15000</td>
+<td>2</td>
+</tr>
+<tr>
+<td>郑十</td>
+<td>13000</td>
+<td>3</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>12000</td>
+<td>3</td>
+</tr>
+<tr>
+<td>孙七</td>
+<td>11000</td>
+<td>4</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>9000</td>
+<td>4</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 8 行分 4 组，每组 2 行。如果不能整除，前面的组会多分 1 行（如 7 行分 3 组 → 3, 2, 2）。</p>
+</blockquote>
+<hr>
+<h2 id="六、⭐-偏移函数与取值函数"><a href="#六、⭐-偏移函数与取值函数" class="headerlink" title="六、⭐ 偏移函数与取值函数"></a>六、⭐ 偏移函数与取值函数</h2><h3 id="1-LAG-expr-offset-default"><a href="#1-LAG-expr-offset-default" class="headerlink" title="1. LAG(expr, offset, default)"></a>1. <code>LAG(expr, offset, default)</code></h3><p>获取当前行<strong>前面第 N 行</strong>的值。</p>
+<ul>
+<li><code>expr</code>：要获取的列</li>
+<li><code>offset</code>：偏移量，默认 1（前一行）</li>
+<li><code>default</code>：没有前一行时的默认值，默认 NULL</li>
+</ul>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 计算每个销售人员的月度环比增长</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    salesperson, <span class="keyword">month</span>, amount,</span><br><span class="line">    <span class="built_in">LAG</span>(amount) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> salesperson <span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">month</span>) <span class="keyword">AS</span> prev_amount,</span><br><span class="line">    amount <span class="operator">-</span> <span class="built_in">LAG</span>(amount) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> salesperson <span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">month</span>) <span class="keyword">AS</span> growth</span><br><span class="line"><span class="keyword">FROM</span> monthly_sales;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>salesperson</th>
+<th>month</th>
+<th>amount</th>
+<th>prev_amount</th>
+<th>growth</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>王五</td>
+<td>2025-01</td>
+<td>30000</td>
+<td>NULL</td>
+<td>NULL</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>2025-02</td>
+<td>28000</td>
+<td>30000</td>
+<td>-2000</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>2025-03</td>
+<td>35000</td>
+<td>28000</td>
+<td>7000</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>2025-04</td>
+<td>42000</td>
+<td>35000</td>
+<td>7000</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>2025-01</td>
+<td>25000</td>
+<td>NULL</td>
+<td>NULL</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>2025-02</td>
+<td>32000</td>
+<td>25000</td>
+<td>7000</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>2025-03</td>
+<td>28000</td>
+<td>32000</td>
+<td>-4000</td>
+</tr>
+<tr>
+<td>赵六</td>
+<td>2025-04</td>
+<td>30000</td>
+<td>28000</td>
+<td>2000</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>2025-01</td>
+<td>35000</td>
+<td>NULL</td>
+<td>NULL</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>2025-02</td>
+<td>40000</td>
+<td>35000</td>
+<td>5000</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>2025-03</td>
+<td>38000</td>
+<td>40000</td>
+<td>-2000</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>2025-04</td>
+<td>45000</td>
+<td>38000</td>
+<td>7000</td>
+</tr>
+</tbody></table>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 指定偏移量和默认值</span></span><br><span class="line"><span class="keyword">SELECT</span> salesperson, <span class="keyword">month</span>, amount,</span><br><span class="line">    <span class="built_in">LAG</span>(amount, <span class="number">2</span>, <span class="number">0</span>) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> salesperson <span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">month</span>) <span class="keyword">AS</span> two_months_ago</span><br><span class="line"><span class="keyword">FROM</span> monthly_sales;</span><br><span class="line"><span class="comment">-- 王五 2025-01: 0（无前2行，用默认值0）</span></span><br><span class="line"><span class="comment">-- 王五 2025-02: 0</span></span><br><span class="line"><span class="comment">-- 王五 2025-03: 30000（前2行是2025-01）</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2-LEAD-expr-offset-default"><a href="#2-LEAD-expr-offset-default" class="headerlink" title="2. LEAD(expr, offset, default)"></a>2. <code>LEAD(expr, offset, default)</code></h3><p>获取当前行<strong>后面第 N 行</strong>的值，参数与 <code>LAG</code> 相同，方向相反。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查看每个销售人员下个月的业绩</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    salesperson, <span class="keyword">month</span>, amount,</span><br><span class="line">    <span class="built_in">LEAD</span>(amount) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> salesperson <span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">month</span>) <span class="keyword">AS</span> next_amount</span><br><span class="line"><span class="keyword">FROM</span> monthly_sales;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>salesperson</th>
+<th>month</th>
+<th>amount</th>
+<th>next_amount</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>王五</td>
+<td>2025-01</td>
+<td>30000</td>
+<td>28000</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>2025-02</td>
+<td>28000</td>
+<td>35000</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>2025-03</td>
+<td>35000</td>
+<td>42000</td>
+</tr>
+<tr>
+<td>王五</td>
+<td>2025-04</td>
+<td>42000</td>
+<td>NULL</td>
+</tr>
+</tbody></table>
+<p><strong>⭐ 实用场景：计算环比增长率</strong></p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    salesperson, <span class="keyword">month</span>, amount,</span><br><span class="line">    <span class="built_in">LAG</span>(amount) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> salesperson <span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">month</span>) <span class="keyword">AS</span> prev,</span><br><span class="line">    <span class="keyword">CASE</span></span><br><span class="line">        <span class="keyword">WHEN</span> <span class="built_in">LAG</span>(amount) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> salesperson <span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">month</span>) <span class="keyword">IS</span> <span class="keyword">NULL</span> <span class="keyword">THEN</span> <span class="keyword">NULL</span></span><br><span class="line">        <span class="keyword">ELSE</span> ROUND(</span><br><span class="line">            (amount <span class="operator">-</span> <span class="built_in">LAG</span>(amount) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> salesperson <span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">month</span>))</span><br><span class="line">            <span class="operator">/</span> <span class="built_in">LAG</span>(amount) <span class="keyword">OVER</span>(<span class="keyword">PARTITION</span> <span class="keyword">BY</span> salesperson <span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">month</span>) <span class="operator">*</span> <span class="number">100</span>, <span class="number">2</span></span><br><span class="line">        )</span><br><span class="line">    <span class="keyword">END</span> <span class="keyword">AS</span> growth_rate_pct</span><br><span class="line"><span class="keyword">FROM</span> monthly_sales;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-FIRST-VALUE-LAST-VALUE"><a href="#3-FIRST-VALUE-LAST-VALUE" class="headerlink" title="3. FIRST_VALUE() &#x2F; LAST_VALUE()"></a>3. <code>FIRST_VALUE()</code> &#x2F; <code>LAST_VALUE()</code></h3><p>获取窗口中<strong>第一行</strong> &#x2F; <strong>最后一行</strong>的值。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 每个部门工资最高的人的工资（第一行 = 最大值）</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name, department, salary,</span><br><span class="line">    <span class="built_in">FIRST_VALUE</span>(salary) <span class="keyword">OVER</span>(</span><br><span class="line">        <span class="keyword">PARTITION</span> <span class="keyword">BY</span> department <span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span></span><br><span class="line">    ) <span class="keyword">AS</span> dept_max_salary</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>⚠️ <strong>LAST_VALUE 的陷阱</strong>：<code>LAST_VALUE</code> 搭配 <code>ORDER BY</code> 使用时，默认窗口范围是”到当前行为止”，所以 <code>LAST_VALUE</code> 实际返回的是<strong>当前行的值</strong>，而不是分区最后一行！</p>
+</blockquote>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- ❌ 结果不符合预期：每行的 last_val 都是自己</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name, department, salary,</span><br><span class="line">    <span class="built_in">LAST_VALUE</span>(salary) <span class="keyword">OVER</span>(</span><br><span class="line">        <span class="keyword">PARTITION</span> <span class="keyword">BY</span> department <span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span></span><br><span class="line">    ) <span class="keyword">AS</span> last_val</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br><span class="line"><span class="comment">-- 技术部: 周八→22000, 李四→18000, 张三→15000（每行返回自己的值）</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- ✅ 正确写法：显式指定窗口范围为整个分区</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name, department, salary,</span><br><span class="line">    <span class="built_in">LAST_VALUE</span>(salary) <span class="keyword">OVER</span>(</span><br><span class="line">        <span class="keyword">PARTITION</span> <span class="keyword">BY</span> department <span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span></span><br><span class="line">        <span class="keyword">ROWS</span> <span class="keyword">BETWEEN</span> UNBOUNDED PRECEDING <span class="keyword">AND</span> UNBOUNDED FOLLOWING</span><br><span class="line">    ) <span class="keyword">AS</span> dept_min_salary</span><br><span class="line"><span class="keyword">FROM</span> employee;</span><br><span class="line"><span class="comment">-- 技术部所有行都返回 15000（分区内工资最低值）</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>💡 <strong>建议</strong>：使用 <code>LAST_VALUE</code> 时<strong>必须显式指定窗口范围</strong>，否则很容易得到错误结果。或者直接用 <code>FIRST_VALUE</code> 配合反向排序来替代。</p>
+</blockquote>
+<hr>
+<h2 id="七、⚠️-开窗函数不能在-WHERE-中使用"><a href="#七、⚠️-开窗函数不能在-WHERE-中使用" class="headerlink" title="七、⚠️ 开窗函数不能在 WHERE 中使用"></a>七、⚠️ 开窗函数不能在 WHERE 中使用</h2><p>这是一个<strong>非常重要的限制</strong>：开窗函数的结果<strong>不能直接</strong>在 <code>WHERE</code>、<code>GROUP BY</code>、<code>HAVING</code> 中使用。</p>
+<p><strong>原因</strong>：SQL 的执行顺序决定了这一点：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">FROM → WHERE → GROUP BY → HAVING → SELECT（开窗函数在此计算） → ORDER BY → LIMIT</span><br></pre></td></tr></table></figure>
+
+<p><code>WHERE</code> 在 <code>SELECT</code> <strong>之前</strong>执行，而开窗函数是在 <code>SELECT</code> 阶段才计算的，所以 <code>WHERE</code> 根本”看不到”开窗函数产生的列。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- ❌ 错误：WHERE 中不能直接引用开窗函数</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name, salary,</span><br><span class="line">    <span class="built_in">RANK</span>() <span class="keyword">OVER</span>(<span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span>) <span class="keyword">AS</span> rnk</span><br><span class="line"><span class="keyword">FROM</span> employee</span><br><span class="line"><span class="keyword">WHERE</span> rnk <span class="operator">&lt;=</span> <span class="number">3</span>;</span><br><span class="line"><span class="comment">-- 报错！rnk 在 WHERE 执行时还不存在</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- ✅ 正确写法1：包装成子查询，在外层 WHERE 过滤</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> (</span><br><span class="line">    <span class="keyword">SELECT</span></span><br><span class="line">        name, salary,</span><br><span class="line">        <span class="built_in">RANK</span>() <span class="keyword">OVER</span>(<span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span>) <span class="keyword">AS</span> rnk</span><br><span class="line">    <span class="keyword">FROM</span> employee</span><br><span class="line">) t</span><br><span class="line"><span class="keyword">WHERE</span> rnk <span class="operator">&lt;=</span> <span class="number">3</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- ✅ 正确写法2：使用 CTE（可读性更好）</span></span><br><span class="line"><span class="keyword">WITH</span> ranked <span class="keyword">AS</span> (</span><br><span class="line">    <span class="keyword">SELECT</span></span><br><span class="line">        name, salary,</span><br><span class="line">        <span class="built_in">RANK</span>() <span class="keyword">OVER</span>(<span class="keyword">ORDER</span> <span class="keyword">BY</span> salary <span class="keyword">DESC</span>) <span class="keyword">AS</span> rnk</span><br><span class="line">    <span class="keyword">FROM</span> employee</span><br><span class="line">)</span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> ranked <span class="keyword">WHERE</span> rnk <span class="operator">&lt;=</span> <span class="number">3</span>;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>salary</th>
+<th>rnk</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>周八</td>
+<td>22000</td>
+<td>1</td>
+</tr>
+<tr>
+<td>李四</td>
+<td>18000</td>
+<td>2</td>
+</tr>
+<tr>
+<td>张三</td>
+<td>15000</td>
+<td>3</td>
+</tr>
+<tr>
+<td>吴九</td>
+<td>15000</td>
+<td>3</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>实用建议</strong>：需要对开窗函数的结果做过滤时，<strong>套一层子查询或 CTE</strong> 是标准做法。推荐用 CTE（<code>WITH</code> 语法），可读性更好。这也是前一篇文章中 CTE 的典型应用场景之一。</p>
+</blockquote>
+<blockquote>
+<p>⭐ <strong>记忆口诀</strong>：开窗函数只能出现在 <code>SELECT</code> 和 <code>ORDER BY</code> 中，不能出现在 <code>WHERE</code>、<code>GROUP BY</code>、<code>HAVING</code> 中。要过滤？先套一层！</p>
+</blockquote>
+<hr>
+<h2 id="八、综合速查表"><a href="#八、综合速查表" class="headerlink" title="八、综合速查表"></a>八、综合速查表</h2><table>
+<thead>
+<tr>
+<th>需求</th>
+<th>函数 &#x2F; 写法</th>
+<th>要点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>分区内汇总（保留明细）</td>
+<td><code>SUM/AVG/COUNT() OVER(PARTITION BY ...)</code></td>
+<td>不加 ORDER BY &#x3D; 整个分区</td>
+</tr>
+<tr>
+<td>累计求和</td>
+<td><code>SUM() OVER(PARTITION BY ... ORDER BY ...)</code></td>
+<td>加 ORDER BY 默认累计</td>
+</tr>
+<tr>
+<td>移动平均 &#x2F; 滑动窗口</td>
+<td><code>AVG() OVER(... ROWS BETWEEN N PRECEDING AND N FOLLOWING)</code></td>
+<td>手动指定 Frame</td>
+</tr>
+<tr>
+<td>唯一行号</td>
+<td><code>ROW_NUMBER() OVER(ORDER BY ...)</code></td>
+<td>不并列，常用于 Top N</td>
+</tr>
+<tr>
+<td>排名（跳跃）</td>
+<td><code>RANK() OVER(ORDER BY ...)</code></td>
+<td>并列后跳号</td>
+</tr>
+<tr>
+<td>排名（不跳跃）</td>
+<td><code>DENSE_RANK() OVER(ORDER BY ...)</code></td>
+<td>并列后连续</td>
+</tr>
+<tr>
+<td>均分为 N 组</td>
+<td><code>NTILE(N) OVER(ORDER BY ...)</code></td>
+<td>四分位、百分位</td>
+</tr>
+<tr>
+<td>前一行的值</td>
+<td><code>LAG(col, 1) OVER(ORDER BY ...)</code></td>
+<td>环比计算</td>
+</tr>
+<tr>
+<td>后一行的值</td>
+<td><code>LEAD(col, 1) OVER(ORDER BY ...)</code></td>
+<td>预测 &#x2F; 对比</td>
+</tr>
+<tr>
+<td>窗口内第一个值</td>
+<td><code>FIRST_VALUE(col) OVER(...)</code></td>
+<td>分区最大&#x2F;最小</td>
+</tr>
+<tr>
+<td>窗口内最后一个值</td>
+<td><code>LAST_VALUE(col) OVER(... ROWS BETWEEN ... AND UNBOUNDED FOLLOWING)</code></td>
+<td>⚠️ 必须显式指定 Frame</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="九、LeetCode-相关练习"><a href="#九、LeetCode-相关练习" class="headerlink" title="九、LeetCode 相关练习"></a>九、LeetCode 相关练习</h2><!-- 在此添加相关 LeetCode 题目链接 -->
+
+<blockquote>
+<p>🔗 后续待补充..</p>
+</blockquote>
+<hr>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><blockquote>
+<p>📚 本文内容参考以下资料整理：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.codefather.cn/course/1952312567451275265/section/1952312568130752514">编程导航 - 第 9 章：开窗函数</a></li>
+</ul>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer"><script src="https://giscus.app/client.js"
+        data-repo="2023Andrewyang/2023Andrewyang.github.io"
+        data-repo-id="R_kgDORLUYLQ"
+        data-category="General"
+        data-category-id="DIC_kwDORLUYLc4C2JUx"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="preferred_color_scheme"
+        data-lang="zh-CN"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+
+
+          <div class="post-tags">
+              <a href="/tags/SQL/" rel="tag"># SQL</a>
+              <a href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag"># 数据库</a>
+              <a href="/tags/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" rel="tag"># 学习笔记</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2026/02/19/SQL%E5%9F%BA%E7%A1%80-%E6%9D%A1%E4%BB%B6%E6%9F%A5%E8%AF%A2%E4%B8%8E%E5%88%86%E7%BB%84%E6%9F%A5%E8%AF%A2/" rel="prev" title="SQL基础-条件查询与分组查询">
+                  <i class="fa fa-angle-left"></i> SQL基础-条件查询与分组查询
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2026/02/20/SQL%E5%9F%BA%E7%A1%80-%E5%A4%9A%E8%A1%A8%E8%BF%9E%E6%8E%A5%E4%B8%8E%E9%9B%86%E5%90%88%E6%9F%A5%E8%AF%A2/" rel="next" title="SQL基础-多表连接与集合查询">
+                  SQL基础-多表连接与集合查询 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">Andrew Yang</span>
+  </div>
+<div class="wordcount">
+  <span class="post-meta-item">
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-line"></i>
+    </span>
+    <span title="站点总字数">28k</span>
+  </span>
+  <span class="post-meta-item">
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">1:41</span>
+  </span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+</body>
+</html>
