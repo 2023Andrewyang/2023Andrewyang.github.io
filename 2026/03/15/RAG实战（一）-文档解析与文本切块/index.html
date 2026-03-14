@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" integrity="sha256-VHqXKFhhMxcpubYf9xiWdCiojEbY9NexQ4jh8AxbvcM=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"2023andrewyang.github.io","root":"/","images":"/images","scheme":"Gemini","darkmode":true,"version":"8.27.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"default","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":true,"style":"mac"},"fold":{"enable":false,"height":500},"language":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="本文是 RAG 实战系列第一篇，介绍 RAG 流水线的第一个环节：如何把原始 PDF 文档解析成可检索的文本片段。很多人忽视这一步，但实际上文档解析和切块的质量直接决定了整个 RAG 系统的上限。  本系列基于开源项目 IlyaRice&#x2F;RAG-Challenge-2 的工程实践总结。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="RAG实战（一）-文档解析与文本切块">
+<meta property="og:url" content="https://2023andrewyang.github.io/2026/03/15/RAG%E5%AE%9E%E6%88%98%EF%BC%88%E4%B8%80%EF%BC%89-%E6%96%87%E6%A1%A3%E8%A7%A3%E6%9E%90%E4%B8%8E%E6%96%87%E6%9C%AC%E5%88%87%E5%9D%97/index.html">
+<meta property="og:site_name" content="Andrew&#39;s Blog">
+<meta property="og:description" content="本文是 RAG 实战系列第一篇，介绍 RAG 流水线的第一个环节：如何把原始 PDF 文档解析成可检索的文本片段。很多人忽视这一步，但实际上文档解析和切块的质量直接决定了整个 RAG 系统的上限。  本系列基于开源项目 IlyaRice&#x2F;RAG-Challenge-2 的工程实践总结。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-03-15T02:00:00.000Z">
+<meta property="article:modified_time" content="2026-03-14T09:42:50.000Z">
+<meta property="article:author" content="Andrew Yang">
+<meta property="article:tag" content="RAG">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="AI">
+<meta property="article:tag" content="学习笔记">
+<meta property="article:tag" content="Python">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://2023andrewyang.github.io/2026/03/15/RAG%E5%AE%9E%E6%88%98%EF%BC%88%E4%B8%80%EF%BC%89-%E6%96%87%E6%A1%A3%E8%A7%A3%E6%9E%90%E4%B8%8E%E6%96%87%E6%9C%AC%E5%88%87%E5%9D%97/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://2023andrewyang.github.io/2026/03/15/RAG%E5%AE%9E%E6%88%98%EF%BC%88%E4%B8%80%EF%BC%89-%E6%96%87%E6%A1%A3%E8%A7%A3%E6%9E%90%E4%B8%8E%E6%96%87%E6%9C%AC%E5%88%87%E5%9D%97/","path":"2026/03/15/RAG实战（一）-文档解析与文本切块/","title":"RAG实战（一）-文档解析与文本切块"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>RAG实战（一）-文档解析与文本切块 | Andrew's Blog</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/motion.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script>
+
+  
+
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Andrew's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9B%AE%E5%BD%95"><span class="nav-number">1.</span> <span class="nav-text">目录</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B%E6%A6%82%E8%A7%88"><span class="nav-number">2.</span> <span class="nav-text">1. 整体流程概览</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E7%AC%AC%E4%B8%80%E6%AD%A5%EF%BC%9APDF-%E8%A7%A3%E6%9E%90-%E2%80%94%E2%80%94-%E9%80%89%E5%AF%B9%E5%B7%A5%E5%85%B7%E6%98%AF%E6%88%90%E5%8A%9F%E7%9A%84%E4%B8%80%E5%8D%8A"><span class="nav-number">3.</span> <span class="nav-text">2. 第一步：PDF 解析 —— 选对工具是成功的一半</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E8%83%BD%E7%9B%B4%E6%8E%A5%E7%94%A8-PyPDF2%EF%BC%9F"><span class="nav-number">3.1.</span> <span class="nav-text">2.1 为什么不能直接用 PyPDF2？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-%E6%8E%A8%E8%8D%90%E5%B7%A5%E5%85%B7%EF%BC%9ADocling"><span class="nav-number">3.2.</span> <span class="nav-text">2.2 推荐工具：Docling</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-%E8%A7%A3%E6%9E%90%E7%BB%93%E6%9E%9C%E7%9A%84%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="nav-number">3.3.</span> <span class="nav-text">2.3 解析结果的数据结构</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-%E8%A1%A5%E5%85%85%EF%BC%9ADocling-%E4%B8%BA%E4%BB%80%E4%B9%88%E6%AF%94%E5%85%B6%E4%BB%96%E5%BA%93%E8%A7%A3%E6%9E%90%E5%BE%97%E6%9B%B4%E5%A5%BD%EF%BC%9F"><span class="nav-number">4.</span> <span class="nav-text">3. 补充：Docling 为什么比其他库解析得更好？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E4%BC%A0%E7%BB%9F%E5%B7%A5%E5%85%B7%E7%9A%84%E5%B7%A5%E4%BD%9C%E6%96%B9%E5%BC%8F%EF%BC%9A%E5%AD%97%E7%AC%A6%E6%B5%81%E6%8F%90%E5%8F%96"><span class="nav-number">4.1.</span> <span class="nav-text">3.1 传统工具的工作方式：字符流提取</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-Docling-%E7%9A%84%E5%B7%A5%E4%BD%9C%E6%96%B9%E5%BC%8F%EF%BC%9A%E6%A8%A1%E5%9E%8B%E9%A9%B1%E5%8A%A8%E7%9A%84%E7%89%88%E5%BC%8F%E7%90%86%E8%A7%A3"><span class="nav-number">4.2.</span> <span class="nav-text">3.2 Docling 的工作方式：模型驱动的版式理解</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-%E5%90%84%E7%B1%BB%E6%96%87%E6%A1%A3%E5%85%83%E7%B4%A0%E7%9A%84%E8%AF%86%E5%88%AB%E8%83%BD%E5%8A%9B%E5%AF%B9%E6%AF%94"><span class="nav-number">4.3.</span> <span class="nav-text">3.3 各类文档元素的识别能力对比</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-label-%E5%AD%97%E6%AE%B5%EF%BC%9ADocling-%E6%9C%80%E5%80%BC%E5%BE%97%E5%88%A9%E7%94%A8%E7%9A%84%E8%BE%93%E5%87%BA"><span class="nav-number">4.4.</span> <span class="nav-text">3.4 label 字段：Docling 最值得利用的输出</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-5-%E8%A1%A8%E6%A0%BC%E8%AF%86%E5%88%AB%EF%BC%9ATableFormer-%E6%A8%A1%E5%9E%8B"><span class="nav-number">4.5.</span> <span class="nav-text">3.5 表格识别：TableFormer 模型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-6-%E4%B8%A4%E7%A7%8D-PDF-%E5%90%8E%E7%AB%AF%E7%9A%84%E5%B7%AE%E5%BC%82"><span class="nav-number">4.6.</span> <span class="nav-text">3.6 两种 PDF 后端的差异</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-7-%E6%80%A7%E8%83%BD%E5%8F%96%E8%88%8D%EF%BC%9A%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E5%8F%AF%E4%BB%A5%E9%99%8D%E7%BA%A7%EF%BC%9F"><span class="nav-number">4.7.</span> <span class="nav-text">3.7 性能取舍：什么时候可以降级？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E7%AC%AC%E4%BA%8C%E6%AD%A5%EF%BC%9A%E5%85%83%E4%BF%A1%E6%81%AF%E6%8F%90%E5%8F%96%E4%B8%8E%E4%BF%9D%E5%AD%98"><span class="nav-number">5.</span> <span class="nav-text">4. 第二步：元信息提取与保存</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-%E4%BB%80%E4%B9%88%E6%98%AF%E5%85%83%E4%BF%A1%E6%81%AF%EF%BC%8C%E4%B8%BA%E4%BB%80%E4%B9%88%E9%87%8D%E8%A6%81%EF%BC%9F"><span class="nav-number">5.1.</span> <span class="nav-text">4.1 什么是元信息，为什么重要？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-%E6%96%87%E6%A1%A3%E7%BA%A7%E5%85%83%E4%BF%A1%E6%81%AF%E7%9A%84%E8%AE%BE%E8%AE%A1"><span class="nav-number">5.2.</span> <span class="nav-text">4.2 文档级元信息的设计</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-%E5%A4%96%E9%83%A8%E5%85%83%E4%BF%A1%E6%81%AF%E7%9A%84%E5%85%B3%E8%81%94"><span class="nav-number">5.3.</span> <span class="nav-text">4.3 外部元信息的关联</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-%E7%AC%AC%E4%B8%89%E6%AD%A5%EF%BC%9A%E6%96%87%E6%A1%A3%E7%BB%93%E6%9E%84%E5%8C%96-%E2%80%94%E2%80%94-%E4%B8%8D%E5%8F%AA%E6%98%AF%E6%8F%90%E5%8F%96%E6%96%87%E5%AD%97"><span class="nav-number">6.</span> <span class="nav-text">5. 第三步：文档结构化 —— 不只是提取文字</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-%E6%8C%89%E9%A1%B5%E9%9D%A2%E7%BB%84%E7%BB%87%E5%86%85%E5%AE%B9"><span class="nav-number">6.1.</span> <span class="nav-text">5.1 按页面组织内容</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-%E5%A4%84%E7%90%86%E9%A1%B5%E9%9D%A2%E5%BA%8F%E5%8F%B7%E7%BC%BA%E5%8F%A3"><span class="nav-number">6.2.</span> <span class="nav-text">5.2 处理页面序号缺口</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-%E5%A4%84%E7%90%86%E6%96%87%E6%A1%A3%E9%80%BB%E8%BE%91%E6%A0%91%E4%B8%AD%E7%9A%84-Group-%E5%BC%95%E7%94%A8"><span class="nav-number">6.3.</span> <span class="nav-text">5.3 处理文档逻辑树中的 Group 引用</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-%E7%AC%AC%E5%9B%9B%E6%AD%A5%EF%BC%9A%E8%A1%A8%E6%A0%BC%E7%9A%84%E4%B8%93%E9%A1%B9%E5%A4%84%E7%90%86"><span class="nav-number">7.</span> <span class="nav-text">6. 第四步：表格的专项处理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#6-1-%E8%A1%A8%E6%A0%BC%E6%98%AF-RAG-%E7%9A%84%E5%99%A9%E6%A2%A6"><span class="nav-number">7.1.</span> <span class="nav-text">6.1 表格是 RAG 的噩梦</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-2-%E8%A1%A8%E6%A0%BC%E5%BA%8F%E5%88%97%E5%8C%96%EF%BC%9A%E7%94%A8-LLM-%E8%BD%AC%E5%8C%96%E4%B8%BA%E8%87%AA%E5%8C%85%E5%90%AB%E6%96%87%E6%9C%AC%E5%9D%97"><span class="nav-number">7.2.</span> <span class="nav-text">6.2 表格序列化：用 LLM 转化为自包含文本块</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-3-%E5%85%B3%E9%94%AE%EF%BC%9A%E5%88%A9%E7%94%A8%E8%A1%A8%E6%A0%BC%E4%B8%8A%E4%B8%8B%E6%96%87"><span class="nav-number">7.3.</span> <span class="nav-text">6.3 关键：利用表格上下文</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-4-%E5%BA%8F%E5%88%97%E5%8C%96%E7%BB%93%E6%9E%9C%E7%9A%84%E5%AD%98%E5%82%A8%E7%AD%96%E7%95%A5"><span class="nav-number">7.4.</span> <span class="nav-text">6.4 序列化结果的存储策略</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-%E7%AC%AC%E4%BA%94%E6%AD%A5%EF%BC%9A%E6%96%87%E6%9C%AC%E6%B8%85%E6%B4%97-%E2%80%94%E2%80%94-%E5%AE%B9%E6%98%93%E8%A2%AB%E5%BF%BD%E8%A7%86%E7%9A%84%E5%85%B3%E9%94%AE%E7%8E%AF%E8%8A%82"><span class="nav-number">8.</span> <span class="nav-text">7. 第五步：文本清洗 —— 容易被忽视的关键环节</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#7-1-OCR-%E5%99%AA%E5%A3%B0%E9%97%AE%E9%A2%98"><span class="nav-number">8.1.</span> <span class="nav-text">7.1 OCR 噪声问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-2-%E7%94%A8-Markdown-%E7%BB%93%E6%9E%84%E5%8C%96%E6%96%87%E6%9C%AC%EF%BC%8C%E6%8F%90%E5%8D%87%E5%88%87%E5%9D%97%E8%B4%A8%E9%87%8F"><span class="nav-number">8.2.</span> <span class="nav-text">7.2 用 Markdown 结构化文本，提升切块质量</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-3-%E8%A1%A8%E6%A0%BC%E4%B8%8E%E8%84%9A%E6%B3%A8%E7%9A%84%E5%85%B3%E8%81%94%E5%A4%84%E7%90%86"><span class="nav-number">8.3.</span> <span class="nav-text">7.3 表格与脚注的关联处理</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#8-%E7%AC%AC%E5%85%AD%E6%AD%A5%EF%BC%9A%E6%96%87%E6%9C%AC%E5%88%87%E5%9D%97%E7%AD%96%E7%95%A5"><span class="nav-number">9.</span> <span class="nav-text">8. 第六步：文本切块策略</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#8-1-%E5%88%87%E5%9D%97%E7%9A%84%E6%A0%B8%E5%BF%83%E7%9F%9B%E7%9B%BE"><span class="nav-number">9.1.</span> <span class="nav-text">8.1 切块的核心矛盾</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-2-%E4%BD%BF%E7%94%A8-Token-%E8%AE%A1%E6%95%B0%E8%80%8C%E9%9D%9E%E5%AD%97%E7%AC%A6%E6%95%B0"><span class="nav-number">9.2.</span> <span class="nav-text">8.2 使用 Token 计数而非字符数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-3-RecursiveCharacterTextSplitter-%E7%9A%84%E5%88%87%E5%89%B2%E4%BC%98%E5%85%88%E7%BA%A7"><span class="nav-number">9.3.</span> <span class="nav-text">8.3 RecursiveCharacterTextSplitter 的切割优先级</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-4-%E6%8C%89%E9%A1%B5%E9%9D%A2%E5%88%87%E5%9D%97-vs-%E5%85%A8%E6%96%87%E5%88%87%E5%9D%97"><span class="nav-number">9.4.</span> <span class="nav-text">8.4 按页面切块 vs 全文切块</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-%E7%AC%AC%E4%B8%83%E6%AD%A5%EF%BC%9A%E5%88%87%E5%9D%97%E5%90%8E%E7%9A%84%E5%85%83%E4%BF%A1%E6%81%AF%E6%8C%82%E8%BD%BD"><span class="nav-number">10.</span> <span class="nav-text">9. 第七步：切块后的元信息挂载</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#9-1-%E6%AF%8F%E4%B8%AA-Chunk-%E5%BA%94%E6%90%BA%E5%B8%A6%E7%9A%84%E4%BF%A1%E6%81%AF"><span class="nav-number">10.1.</span> <span class="nav-text">9.1 每个 Chunk 应携带的信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#9-2-%E6%96%87%E6%A1%A3%E7%BA%A7%E5%85%83%E4%BF%A1%E6%81%AF-vs-Chunk-%E7%BA%A7%E5%85%83%E4%BF%A1%E6%81%AF%E7%9A%84%E5%AD%98%E5%82%A8%E7%AD%96%E7%95%A5"><span class="nav-number">10.2.</span> <span class="nav-text">9.2 文档级元信息 vs Chunk 级元信息的存储策略</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#10-%E5%B8%B8%E8%A7%81%E9%94%99%E8%AF%AF%E6%B1%87%E6%80%BB%E4%B8%8E%E9%81%BF%E5%9D%91%E6%8C%87%E5%8D%97"><span class="nav-number">11.</span> <span class="nav-text">10. 常见错误汇总与避坑指南</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%94%99%E8%AF%AF%E6%B8%85%E5%8D%95"><span class="nav-number">11.1.</span> <span class="nav-text">错误清单</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%B0%83%E8%AF%95%E6%8A%80%E5%B7%A7"><span class="nav-number">11.2.</span> <span class="nav-text">调试技巧</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#11-%E5%AE%8C%E6%95%B4%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E5%8F%82%E8%80%83"><span class="nav-number">12.</span> <span class="nav-text">11. 完整数据结构参考</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%84%E7%90%86%E5%90%8E%E7%9A%84-JSON-%E7%BB%93%E6%9E%84"><span class="nav-number">12.1.</span> <span class="nav-text">处理后的 JSON 结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B5%81%E6%B0%B4%E7%BA%BF%E4%BB%A3%E7%A0%81%E9%AA%A8%E6%9E%B6"><span class="nav-number">12.2.</span> <span class="nav-text">流水线代码骨架</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">13.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Andrew Yang"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Andrew Yang</p>
+  <div class="site-description" itemprop="description">记录技术、生活与学习</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://2023andrewyang.github.io/2026/03/15/RAG%E5%AE%9E%E6%88%98%EF%BC%88%E4%B8%80%EF%BC%89-%E6%96%87%E6%A1%A3%E8%A7%A3%E6%9E%90%E4%B8%8E%E6%96%87%E6%9C%AC%E5%88%87%E5%9D%97/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Andrew Yang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Andrew's Blog">
+      <meta itemprop="description" content="记录技术、生活与学习">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="RAG实战（一）-文档解析与文本切块 | Andrew's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          RAG实战（一）-文档解析与文本切块
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2026-03-15 10:00:00" itemprop="dateCreated datePublished" datetime="2026-03-15T10:00:00+08:00">2026-03-15</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-03-14 17:42:50" itemprop="dateModified" datetime="2026-03-14T17:42:50+08:00">2026-03-14</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%8A%80%E6%9C%AF%E6%96%87%E7%AB%A0/" itemprop="url" rel="index"><span itemprop="name">技术文章</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+    <span class="post-meta-break"></span>
+    <span class="post-meta-item" title="本文字数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-file-word"></i>
+      </span>
+      <span class="post-meta-item-text">本文字数：</span>
+      <span>7.7k</span>
+    </span>
+    <span class="post-meta-item" title="阅读时长">
+      <span class="post-meta-item-icon">
+        <i class="far fa-clock"></i>
+      </span>
+      <span class="post-meta-item-text">阅读时长 &asymp;</span>
+      <span>28 分钟</span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>本文是 RAG 实战系列第一篇，介绍 RAG 流水线的第一个环节：如何把原始 PDF 文档解析成可检索的文本片段。很多人忽视这一步，但实际上文档解析和切块的质量直接决定了整个 RAG 系统的上限。</p>
+<blockquote>
+<p>本系列基于开源项目 <a target="_blank" rel="noopener" href="https://github.com/IlyaRice/RAG-Challenge-2">IlyaRice&#x2F;RAG-Challenge-2</a> 的工程实践总结。</p>
+</blockquote>
+<hr>
+<span id="more"></span>
+
+<h2 id="目录"><a href="#目录" class="headerlink" title="目录"></a>目录</h2><ol>
+<li><a href="#1-%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B%E6%A6%82%E8%A7%88">整体流程概览</a></li>
+<li><a href="#2-%E7%AC%AC%E4%B8%80%E6%AD%A5pdf-%E8%A7%A3%E6%9E%90--%E9%80%89%E5%AF%B9%E5%B7%A5%E5%85%B7%E6%98%AF%E6%88%90%E5%8A%9F%E7%9A%84%E4%B8%80%E5%8D%8A">第一步：PDF 解析 —— 选对工具是成功的一半</a></li>
+<li><a href="#3-%E8%A1%A5%E5%85%85docling-%E4%B8%BA%E4%BB%80%E4%B9%88%E6%AF%94%E5%85%B6%E4%BB%96%E5%BA%93%E8%A7%A3%E6%9E%90%E5%BE%97%E6%9B%B4%E5%A5%BD">补充：Docling 为什么比其他库解析得更好？</a></li>
+<li><a href="#4-%E7%AC%AC%E4%BA%8C%E6%AD%A5%E5%85%83%E4%BF%A1%E6%81%AF%E6%8F%90%E5%8F%96%E4%B8%8E%E4%BF%9D%E5%AD%98">第二步：元信息提取与保存</a></li>
+<li><a href="#5-%E7%AC%AC%E4%B8%89%E6%AD%A5%E6%96%87%E6%A1%A3%E7%BB%93%E6%9E%84%E5%8C%96--%E4%B8%8D%E5%8F%AA%E6%98%AF%E6%8F%90%E5%8F%96%E6%96%87%E5%AD%97">第三步：文档结构化 —— 不只是提取文字</a></li>
+<li><a href="#6-%E7%AC%AC%E5%9B%9B%E6%AD%A5%E8%A1%A8%E6%A0%BC%E7%9A%84%E4%B8%93%E9%A1%B9%E5%A4%84%E7%90%86">第四步：表格的专项处理</a></li>
+<li><a href="#7-%E7%AC%AC%E4%BA%94%E6%AD%A5%E6%96%87%E6%9C%AC%E6%B8%85%E6%B4%97--%E5%AE%B9%E6%98%93%E8%A2%AB%E5%BF%BD%E8%A7%86%E7%9A%84%E5%85%B3%E9%94%AE%E7%8E%AF%E8%8A%82">第五步：文本清洗 —— 容易被忽视的关键环节</a></li>
+<li><a href="#8-%E7%AC%AC%E5%85%AD%E6%AD%A5%E6%96%87%E6%9C%AC%E5%88%87%E5%9D%97%E7%AD%96%E7%95%A5">第六步：文本切块策略</a></li>
+<li><a href="#9-%E7%AC%AC%E4%B8%83%E6%AD%A5%E5%88%87%E5%9D%97%E5%90%8E%E7%9A%84%E5%85%83%E4%BF%A1%E6%81%AF%E6%8C%82%E8%BD%BD">第七步：切块后的元信息挂载</a></li>
+<li><a href="#10-%E5%B8%B8%E8%A7%81%E9%94%99%E8%AF%AF%E6%B1%87%E6%80%BB%E4%B8%8E%E9%81%BF%E5%9D%91%E6%8C%87%E5%8D%97">常见错误汇总与避坑指南</a></li>
+<li><a href="#11-%E5%AE%8C%E6%95%B4%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E5%8F%82%E8%80%83">完整数据结构参考</a></li>
+</ol>
+<hr>
+<h2 id="1-整体流程概览"><a href="#1-整体流程概览" class="headerlink" title="1. 整体流程概览"></a>1. 整体流程概览</h2><p>很多新手拿到一堆 PDF 文件后，第一反应是直接用 <code>PyPDF2</code> 提取文本，然后按固定字符数切块，最后灌进向量数据库。这种做法在 Demo 阶段勉强能跑通，但在生产环境中会带来一系列问题：<strong>检索质量差、表格信息丢失、上下文断裂、元信息缺失</strong>。</p>
+<p>一个经过打磨的 RAG 文档处理流程应该是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">原始 PDF</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">[步骤1] PDF 解析（Layout分析 + OCR + 表格识别）</span><br><span class="line">    │  → 输出：结构化 JSON（文本块、表格、图片，含坐标和页码）</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">[步骤2] 表格专项序列化（用 LLM 将表格转为自包含的文本块）</span><br><span class="line">    │  → 输出：每个表格行/列的独立语义描述</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">[步骤3] 文本清洗与格式化（修复 OCR 噪声、统一 Markdown 格式）</span><br><span class="line">    │  → 输出：按页面组织的干净文本（含 Markdown 结构标记）</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">[步骤4] 文本切块（语义感知切块，按 Token 数控制大小）</span><br><span class="line">    │  → 输出：带元信息的 Chunk 列表</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">[步骤5] 向量化 + 索引（向量数据库 + BM25 双路索引）</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line"> 可检索的知识库</span><br></pre></td></tr></table></figure>
+
+<p>下面我们逐步拆解每个环节。</p>
+<hr>
+<h2 id="2-第一步：PDF-解析-——-选对工具是成功的一半"><a href="#2-第一步：PDF-解析-——-选对工具是成功的一半" class="headerlink" title="2. 第一步：PDF 解析 —— 选对工具是成功的一半"></a>2. 第一步：PDF 解析 —— 选对工具是成功的一半</h2><h3 id="2-1-为什么不能直接用-PyPDF2？"><a href="#2-1-为什么不能直接用-PyPDF2？" class="headerlink" title="2.1 为什么不能直接用 PyPDF2？"></a>2.1 为什么不能直接用 PyPDF2？</h3><p><code>PyPDF2</code>、<code>pdfplumber</code> 等基础工具只能做简单的文本提取，它们有一个致命缺陷：<strong>不理解文档版式（Layout）</strong>。对于包含多列排版、嵌套表格、页眉页脚的商业文档（如年报、合同），这类工具提取的文本顺序往往是错乱的。</p>
+<p><strong>典型问题场景：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">原始 PDF 双列布局：</span><br><span class="line">┌──────────────┬──────────────┐</span><br><span class="line">│ 第一列第1段  │ 第二列第1段  │</span><br><span class="line">│ 第一列第2段  │ 第二列第2段  │</span><br><span class="line">└──────────────┴──────────────┘</span><br><span class="line"></span><br><span class="line">PyPDF2 提取结果（顺序混乱）：</span><br><span class="line">&quot;第一列第1段 第二列第1段 第一列第2段 第二列第2段&quot;</span><br><span class="line"></span><br><span class="line">正确的提取结果应该是：</span><br><span class="line">&quot;第一列第1段 第一列第2段&quot; 和 &quot;第二列第1段 第二列第2段&quot;（独立段落）</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-2-推荐工具：Docling"><a href="#2-2-推荐工具：Docling" class="headerlink" title="2.2 推荐工具：Docling"></a>2.2 推荐工具：Docling</h3><p>对于企业级文档解析，推荐使用 <a target="_blank" rel="noopener" href="https://github.com/DS4SD/docling">Docling</a>。它基于深度学习模型，能够：</p>
+<ul>
+<li>理解文档版式，正确区分多列、标题、正文、页眉页脚</li>
+<li>识别表格结构（行列关系）</li>
+<li>处理扫描件（OCR）</li>
+<li>输出结构化的文档模型</li>
+</ul>
+<p><strong>基础使用示例：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> docling.document_converter <span class="keyword">import</span> DocumentConverter, FormatOption</span><br><span class="line"><span class="keyword">from</span> docling.datamodel.pipeline_options <span class="keyword">import</span> PdfPipelineOptions, TableFormerMode, EasyOcrOptions</span><br><span class="line"><span class="keyword">from</span> docling.datamodel.base_models <span class="keyword">import</span> InputFormat</span><br><span class="line"><span class="keyword">from</span> docling.pipeline.standard_pdf_pipeline <span class="keyword">import</span> StandardPdfPipeline</span><br><span class="line"><span class="keyword">from</span> docling.backend.docling_parse_v2_backend <span class="keyword">import</span> DoclingParseV2DocumentBackend</span><br><span class="line"></span><br><span class="line"><span class="comment"># 配置解析选项</span></span><br><span class="line">pipeline_options = PdfPipelineOptions()</span><br><span class="line">pipeline_options.do_ocr = <span class="literal">True</span>                                    <span class="comment"># 开启OCR（扫描件必须）</span></span><br><span class="line">pipeline_options.ocr_options = EasyOcrOptions(</span><br><span class="line">    lang=[<span class="string">&#x27;en&#x27;</span>],</span><br><span class="line">    force_full_page_ocr=<span class="literal">False</span>                                     <span class="comment"># 仅对无文字区域做OCR，节省时间</span></span><br><span class="line">)</span><br><span class="line">pipeline_options.do_table_structure = <span class="literal">True</span>                        <span class="comment"># 开启表格结构识别</span></span><br><span class="line">pipeline_options.table_structure_options.do_cell_matching = <span class="literal">True</span>  <span class="comment"># 精确匹配单元格</span></span><br><span class="line">pipeline_options.table_structure_options.mode = TableFormerMode.ACCURATE  <span class="comment"># 精确模式</span></span><br><span class="line"></span><br><span class="line">format_options = &#123;</span><br><span class="line">    InputFormat.PDF: FormatOption(</span><br><span class="line">        pipeline_cls=StandardPdfPipeline,</span><br><span class="line">        pipeline_options=pipeline_options,</span><br><span class="line">        backend=DoclingParseV2DocumentBackend</span><br><span class="line">    )</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">converter = DocumentConverter(format_options=format_options)</span><br><span class="line">result = converter.convert(<span class="string">&quot;your_document.pdf&quot;</span>)</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>坑1</strong>：<code>force_full_page_ocr=False</code> 是合理的默认值。如果对非扫描件开启全页OCR，处理速度会慢 5-10 倍，且结果不一定更好。只有当你确认文档是扫描件时才开启。</p>
+</blockquote>
+<blockquote>
+<p><strong>坑2</strong>：<code>TableFormerMode.ACCURATE</code> 比 <code>FAST</code> 模式慢，但对复杂表格（合并单元格、多级表头）的识别准确率显著更高。如果你的文档包含财务报表等复杂表格，建议用 <code>ACCURATE</code>。</p>
+</blockquote>
+<h3 id="2-3-解析结果的数据结构"><a href="#2-3-解析结果的数据结构" class="headerlink" title="2.3 解析结果的数据结构"></a>2.3 解析结果的数据结构</h3><p>Docling 解析后，通过 <code>export_to_dict()</code> 可以得到一个结构化字典，包含：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  <span class="string">&quot;origin&quot;</span>: &#123;<span class="string">&quot;filename&quot;</span>: <span class="string">&quot;report.pdf&quot;</span>&#125;,</span><br><span class="line">  <span class="string">&quot;pages&quot;</span>: [...],          <span class="comment"># 页面尺寸信息</span></span><br><span class="line">  <span class="string">&quot;texts&quot;</span>: [...],          <span class="comment"># 所有文本块，含label（标题/正文/页眉等）</span></span><br><span class="line">  <span class="string">&quot;tables&quot;</span>: [...],         <span class="comment"># 表格数据（含行列结构）</span></span><br><span class="line">  <span class="string">&quot;pictures&quot;</span>: [...],       <span class="comment"># 图片区域</span></span><br><span class="line">  <span class="string">&quot;body&quot;</span>: &#123;                <span class="comment"># 文档逻辑树（体现层级关系）</span></span><br><span class="line">    <span class="string">&quot;children&quot;</span>: [...]</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>每个文本块（<code>texts</code> 中的元素）都包含非常有价值的信息：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  <span class="string">&quot;text&quot;</span>: <span class="string">&quot;Revenue increased by 15% year-over-year&quot;</span>,</span><br><span class="line">  <span class="string">&quot;label&quot;</span>: <span class="string">&quot;text&quot;</span>,          <span class="comment"># 类型：text/section_header/page_header/footnote/list_item等</span></span><br><span class="line">  <span class="string">&quot;prov&quot;</span>: [&#123;</span><br><span class="line">    <span class="string">&quot;page_no&quot;</span>: <span class="number">3</span>,           <span class="comment"># 所在页码</span></span><br><span class="line">    <span class="string">&quot;bbox&quot;</span>: &#123;               <span class="comment"># 边界框坐标</span></span><br><span class="line">      <span class="string">&quot;l&quot;</span>: <span class="number">72.0</span>, <span class="string">&quot;t&quot;</span>: <span class="number">150.0</span>, <span class="string">&quot;r&quot;</span>: <span class="number">540.0</span>, <span class="string">&quot;b&quot;</span>: <span class="number">165.0</span></span><br><span class="line">    &#125;</span><br><span class="line">  &#125;]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>这些信息非常重要，后续处理都依赖它们，一定要在处理过程中保留。</strong></p>
+<hr>
+<h2 id="3-补充：Docling-为什么比其他库解析得更好？"><a href="#3-补充：Docling-为什么比其他库解析得更好？" class="headerlink" title="3. 补充：Docling 为什么比其他库解析得更好？"></a>3. 补充：Docling 为什么比其他库解析得更好？</h2><p>这一节专门讲 Docling 的内部工作原理，帮助你理解它和传统工具在本质上的差异，而不只是知道”用 Docling 效果更好”。</p>
+<h3 id="3-1-传统工具的工作方式：字符流提取"><a href="#3-1-传统工具的工作方式：字符流提取" class="headerlink" title="3.1 传统工具的工作方式：字符流提取"></a>3.1 传统工具的工作方式：字符流提取</h3><p><code>PyPDF2</code>、<code>pdfminer</code>、<code>pdfplumber</code> 等传统工具的工作原理本质上都是<strong>从 PDF 的底层字节流中读取字符和坐标</strong>。</p>
+<p>PDF 文件格式在内部存储的并不是”段落”或”表格”，而是一条条绘图指令，类似：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"># PDF 内部指令（简化示意）</span><br><span class="line">BT                          % 开始文本块</span><br><span class="line">/F1 12 Tf                   % 设置字体</span><br><span class="line">72 720 Td                   % 移动到坐标 (72, 720)</span><br><span class="line">(Revenue grew by) Tj        % 绘制文字</span><br><span class="line">150 720 Td                  % 移动到坐标 (150, 720)</span><br><span class="line">(15%) Tj                    % 绘制文字</span><br><span class="line">72 700 Td                   % 移动到下一行坐标</span><br><span class="line">(in fiscal year 2023.) Tj   % 继续绘制</span><br><span class="line">ET                          % 结束文本块</span><br></pre></td></tr></table></figure>
+
+<p>传统工具做的事情是：<strong>把这些字符按坐标排序，然后拼成字符串</strong>。它们并不知道哪些字符属于”标题”，哪些属于”表格的第二列第三行”，哪些是”页眉”。</p>
+<p>这就是双列布局会出错的根本原因：两列的 Y 坐标交错，按坐标排序后左右列的内容就混在一起了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">坐标示意（Y值越大越靠上）：</span><br><span class="line">(72, 720): &quot;左列第一行&quot;</span><br><span class="line">(320, 720): &quot;右列第一行&quot;     ← 同一Y高度</span><br><span class="line">(72, 700): &quot;左列第二行&quot;</span><br><span class="line">(320, 700): &quot;右列第二行&quot;     ← 同一Y高度</span><br><span class="line"></span><br><span class="line">按Y排序后：左列第一行 右列第一行 左列第二行 右列第二行  ← 顺序混乱</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-2-Docling-的工作方式：模型驱动的版式理解"><a href="#3-2-Docling-的工作方式：模型驱动的版式理解" class="headerlink" title="3.2 Docling 的工作方式：模型驱动的版式理解"></a>3.2 Docling 的工作方式：模型驱动的版式理解</h3><p>Docling 采用完全不同的思路，它的处理流水线分为多个阶段，每个阶段都使用专门的模型：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">PDF 原始数据</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">[阶段1] PDF 后端解析（DoclingParseV2）</span><br><span class="line">    │  提取原始字符、字体、坐标、图片等底层元素</span><br><span class="line">    │  → 输出：原始元素列表（字符、图形、图片区域）</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">[阶段2] 版式分析模型（Layout Model）</span><br><span class="line">    │  对每一页截图，用目标检测模型识别版式区域</span><br><span class="line">    │  → 输出：带标签的区域列表（标题/段落/表格/图片/页眉/页脚...）</span><br><span class="line">    │         每个区域有精确的边界框（bounding box）</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">[阶段3] 内容分配（Cell Matching）</span><br><span class="line">    │  将阶段1的原始字符，分配到阶段2识别出的各个区域中</span><br><span class="line">    │  → 输出：每个区域内的有序文字内容</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">[阶段4] 表格结构识别（TableFormer 模型）</span><br><span class="line">    │  针对被识别为&quot;表格&quot;的区域，专门识别行列结构</span><br><span class="line">    │  → 输出：结构化的表格（知道哪个单元格属于第几行第几列）</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">[阶段5] OCR（可选，EasyOCR / Tesseract）</span><br><span class="line">    │  对无文字的图片区域（扫描件）运行 OCR</span><br><span class="line">    │  → 输出：扫描内容的文字</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">[阶段6] 文档模型组装</span><br><span class="line">       将上述结果组合为层级化的文档模型（DoclingDocument）</span><br><span class="line">       → 输出：带语义标签的结构化文档</span><br></pre></td></tr></table></figure>
+
+<p><strong>关键差异在阶段2</strong>：Docling 会对每一页生成一张截图，然后用类似目标检测（Object Detection）的深度学习模型来识别版式区域。这个模型是在大量学术论文和商业文档上训练过的，它”看到”的是整张页面的视觉布局，而不是一个个孤立的字符。</p>
+<h3 id="3-3-各类文档元素的识别能力对比"><a href="#3-3-各类文档元素的识别能力对比" class="headerlink" title="3.3 各类文档元素的识别能力对比"></a>3.3 各类文档元素的识别能力对比</h3><table>
+<thead>
+<tr>
+<th>文档元素</th>
+<th>PyPDF2&#x2F;pdfplumber</th>
+<th>Docling</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单列正文文本</td>
+<td>✅ 基本正确</td>
+<td>✅ 正确</td>
+</tr>
+<tr>
+<td>双列&#x2F;多列布局</td>
+<td>❌ 顺序混乱</td>
+<td>✅ 正确分列</td>
+</tr>
+<tr>
+<td>章节标题识别</td>
+<td>❌ 无法区分（仅字体大小）</td>
+<td>✅ 模型识别，输出 <code>section_header</code> 标签</td>
+</tr>
+<tr>
+<td>页眉页脚识别</td>
+<td>❌ 混入正文</td>
+<td>✅ 识别为 <code>page_header</code>&#x2F;<code>page_footer</code> 并可单独过滤</td>
+</tr>
+<tr>
+<td>表格结构（行列）</td>
+<td>❌ 表格变成乱序文本</td>
+<td>✅ TableFormer 识别完整行列结构</td>
+</tr>
+<tr>
+<td>合并单元格（rowspan&#x2F;colspan）</td>
+<td>❌ 完全丢失</td>
+<td>✅ 保留并输出 HTML</td>
+</tr>
+<tr>
+<td>多级表头</td>
+<td>❌ 完全丢失</td>
+<td>✅ 保留层级关系</td>
+</tr>
+<tr>
+<td>脚注识别</td>
+<td>❌ 混入正文</td>
+<td>✅ 识别为 <code>footnote</code> 标签</td>
+</tr>
+<tr>
+<td>列表项识别</td>
+<td>❌ 无法区分</td>
+<td>✅ 识别为 <code>list_item</code> 标签</td>
+</tr>
+<tr>
+<td>图片区域识别</td>
+<td>❌ 无法识别</td>
+<td>✅ 识别区域和边界框</td>
+</tr>
+<tr>
+<td>扫描件 OCR</td>
+<td>❌ 不支持</td>
+<td>✅ 集成 EasyOCR&#x2F;Tesseract</td>
+</tr>
+<tr>
+<td>公式识别</td>
+<td>❌ 不支持</td>
+<td>✅ 部分支持，输出 <code>equation</code> 标签</td>
+</tr>
+</tbody></table>
+<h3 id="3-4-label-字段：Docling-最值得利用的输出"><a href="#3-4-label-字段：Docling-最值得利用的输出" class="headerlink" title="3.4 label 字段：Docling 最值得利用的输出"></a>3.4 <code>label</code> 字段：Docling 最值得利用的输出</h3><p>Docling 给每个文本块打上语义标签（<code>label</code> 字段），这是它相比传统工具最大的优势之一。可用的标签包括：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Docling 文本块的 label 类型</span></span><br><span class="line"><span class="string">&quot;section_header&quot;</span>     <span class="comment"># 章节标题（##）</span></span><br><span class="line"><span class="string">&quot;page_header&quot;</span>        <span class="comment"># 页眉（通常要过滤掉）</span></span><br><span class="line"><span class="string">&quot;page_footer&quot;</span>        <span class="comment"># 页脚（通常要过滤掉）</span></span><br><span class="line"><span class="string">&quot;text&quot;</span>               <span class="comment"># 普通正文</span></span><br><span class="line"><span class="string">&quot;paragraph&quot;</span>          <span class="comment"># 段落（有时与 text 混用）</span></span><br><span class="line"><span class="string">&quot;list_item&quot;</span>          <span class="comment"># 列表项（- ）</span></span><br><span class="line"><span class="string">&quot;footnote&quot;</span>           <span class="comment"># 脚注</span></span><br><span class="line"><span class="string">&quot;caption&quot;</span>            <span class="comment"># 图表标题</span></span><br><span class="line"><span class="string">&quot;formula&quot;</span>            <span class="comment"># 数学公式</span></span><br><span class="line"><span class="string">&quot;checkbox_selected&quot;</span>  <span class="comment"># 选中的复选框 [x]</span></span><br><span class="line"><span class="string">&quot;checkbox_unselected&quot;</span><span class="comment"># 未选中的复选框 [ ]</span></span><br><span class="line"><span class="comment"># 非 texts 数组中的元素：</span></span><br><span class="line"><span class="comment"># &quot;table&quot;            # 表格（在 tables 数组中）</span></span><br><span class="line"><span class="comment"># &quot;picture&quot;          # 图片（在 pictures 数组中）</span></span><br></pre></td></tr></table></figure>
+
+<p>这些标签让后处理变得极为精确。例如，过滤页眉页脚只需一行代码：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ignored_types = &#123;<span class="string">&quot;page_footer&quot;</span>, <span class="string">&quot;picture&quot;</span>&#125;</span><br><span class="line">filtered_blocks = [b <span class="keyword">for</span> b <span class="keyword">in</span> blocks <span class="keyword">if</span> b.get(<span class="string">&quot;type&quot;</span>) <span class="keyword">not</span> <span class="keyword">in</span> ignored_types]</span><br></pre></td></tr></table></figure>
+
+<p>而用 PyPDF2，你要通过坐标位置猜测哪些是页眉（”Y 坐标大于页面高度的 90%？也许是页眉？”），极不可靠。</p>
+<h3 id="3-5-表格识别：TableFormer-模型"><a href="#3-5-表格识别：TableFormer-模型" class="headerlink" title="3.5 表格识别：TableFormer 模型"></a>3.5 表格识别：TableFormer 模型</h3><p>Docling 的表格识别使用了 <strong>TableFormer</strong> 模型（IBM Research 开发），这是专门针对文档表格设计的 Transformer 架构。</p>
+<p>它解决的核心问题是：PDF 里的表格在底层只是一堆坐标随机排列的文字，没有任何”行”和”列”的概念。TableFormer 通过理解视觉上的对齐关系来推断表格结构：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">PDF 底层存储的表格（只有坐标和文字）：</span><br><span class="line">(100, 500): &quot;Metric&quot;   (200, 500): &quot;Q1&quot;    (300, 500): &quot;Q2&quot;</span><br><span class="line">(100, 480): &quot;Revenue&quot;  (200, 480): &quot;4521&quot;  (300, 480): &quot;4890&quot;</span><br><span class="line">(100, 460): &quot;Net Inc&quot;  (200, 460): &quot;412&quot;   (300, 460): &quot;456&quot;</span><br><span class="line"></span><br><span class="line">TableFormer 推断出的结构：</span><br><span class="line">行0（表头）: [&quot;Metric&quot;, &quot;Q1&quot;, &quot;Q2&quot;]</span><br><span class="line">行1:         [&quot;Revenue&quot;, &quot;4521&quot;, &quot;4890&quot;]</span><br><span class="line">行2:         [&quot;Net Inc&quot;, &quot;412&quot;, &quot;456&quot;]</span><br></pre></td></tr></table></figure>
+
+<p>更重要的是，它能处理<strong>合并单元格</strong>，这是传统工具完全无法做到的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">带合并单元格的表头：</span><br><span class="line">┌─────────┬────────────────────────┐</span><br><span class="line">│         │   Financial Results    │  ← 这个单元格跨越2列（colspan=2）</span><br><span class="line">│ Metric  ├────────────┬───────────┤</span><br><span class="line">│         │     Q1     │    Q2     │</span><br><span class="line">├─────────┼────────────┼───────────┤</span><br><span class="line">│ Revenue │   4,521    │   4,890   │</span><br><span class="line"></span><br><span class="line">PyPDF2 提取结果：混乱的字符串，完全失去表头层级</span><br><span class="line">TableFormer 输出：正确的 rowspan/colspan HTML，语义完整</span><br></pre></td></tr></table></figure>
+
+<p><code>do_cell_matching=True</code> 这个配置项的作用是：让 TableFormer 推断出的行列结构与底层的字符坐标进行精确匹配，确保每个单元格内的文字内容正确对应到正确的格子里，而不是靠坐标猜测。</p>
+<h3 id="3-6-两种-PDF-后端的差异"><a href="#3-6-两种-PDF-后端的差异" class="headerlink" title="3.6 两种 PDF 后端的差异"></a>3.6 两种 PDF 后端的差异</h3><table>
+<thead>
+<tr>
+<th>后端</th>
+<th>说明</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>DoclingParseV2DocumentBackend</code>（推荐）</td>
+<td>Docling 自研的高精度解析器，能正确处理复杂字体编码和特殊字符</td>
+<td>大多数商业 PDF，尤其含特殊字符&#x2F;字体时</td>
+</tr>
+<tr>
+<td><code>DoclingParseDocumentBackend</code>（v1）</td>
+<td>老版本，精度略低</td>
+<td>兼容性回退</td>
+</tr>
+<tr>
+<td><code>PyPdfiumDocumentBackend</code></td>
+<td>基于 pdfium 库，速度快但精度一般</td>
+<td>对速度要求高且 PDF 格式简单时</td>
+</tr>
+</tbody></table>
+<p><strong>为什么 DoclingParseV2 更好</strong>：它在处理字体映射时更精确，这直接影响特殊字符（如货币符号 <code>€</code>、数学符号 <code>±</code>）和非英文字符的提取质量。用 PyPdfium 后端时，这类字符可能被替换为乱码或 <code>?</code>，而 DoclingParseV2 能正确解析字体编码表并还原原始字符。</p>
+<h3 id="3-7-性能取舍：什么时候可以降级？"><a href="#3-7-性能取舍：什么时候可以降级？" class="headerlink" title="3.7 性能取舍：什么时候可以降级？"></a>3.7 性能取舍：什么时候可以降级？</h3><p>Docling 的完整流水线比 PyPDF2 慢得多（主要消耗在版式模型推理上），大概慢 10-30 倍。如果处理量很大，有几个可调节的旋钮：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 最快配置（牺牲表格识别精度）</span></span><br><span class="line">pipeline_options.table_structure_options.mode = TableFormerMode.FAST  <span class="comment"># 快速模式</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 如果文档是原生 PDF（非扫描件），关闭 OCR 可大幅提速</span></span><br><span class="line">pipeline_options.do_ocr = <span class="literal">False</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 如果不需要识别表格结构（已知没有重要表格），关闭它</span></span><br><span class="line">pipeline_options.do_table_structure = <span class="literal">False</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 多线程处理（见 parse_and_export_parallel）</span></span><br><span class="line">parser.parse_and_export_parallel(</span><br><span class="line">    input_doc_paths=pdf_paths,</span><br><span class="line">    optimal_workers=<span class="number">4</span>,    <span class="comment"># 根据CPU核数调整</span></span><br><span class="line">    chunk_size=<span class="number">5</span>          <span class="comment"># 每个进程处理5个文件</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p><strong>决策建议</strong>：</p>
+<ul>
+<li>文档含财务表格、对表格精度要求高 → 用完整配置（<code>ACCURATE</code> 模式）</li>
+<li>文档以叙述性文字为主、表格不重要 → 可关闭 <code>do_table_structure</code>，速度提升明显</li>
+<li>文档是扫描件 → OCR 必须开启，不可妥协</li>
+<li>原生数字 PDF → 关闭 OCR，速度提升显著</li>
+</ul>
+<hr>
+<h2 id="4-第二步：元信息提取与保存"><a href="#4-第二步：元信息提取与保存" class="headerlink" title="4. 第二步：元信息提取与保存"></a>4. 第二步：元信息提取与保存</h2><h3 id="4-1-什么是元信息，为什么重要？"><a href="#4-1-什么是元信息，为什么重要？" class="headerlink" title="4.1 什么是元信息，为什么重要？"></a>4.1 什么是元信息，为什么重要？</h3><p>元信息（Metadata）是关于文档本身的描述性信息，例如：</p>
+<ul>
+<li>文档来源（公司名称、文档类型）</li>
+<li>文档统计（总页数、表格数量、图片数量）</li>
+<li>每个 Chunk 所在的页码</li>
+</ul>
+<p><strong>元信息的核心作用：</strong></p>
+<ol>
+<li><strong>过滤检索范围</strong>：用户问”A公司2023年的营收”时，可以先通过元信息过滤只在A公司的文档里检索</li>
+<li><strong>溯源</strong>：检索到的内容能追溯到原文的具体页码，方便人工验证</li>
+<li><strong>调试</strong>：出现问题时快速定位是哪个文档哪一页的数据</li>
+</ol>
+<h3 id="4-2-文档级元信息的设计"><a href="#4-2-文档级元信息的设计" class="headerlink" title="4.2 文档级元信息的设计"></a>4.2 文档级元信息的设计</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">assemble_metainfo</span>(<span class="params">self, data</span>):</span><br><span class="line">    metainfo = &#123;&#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 文档唯一标识（建议用文件SHA1哈希，避免文件名冲突）</span></span><br><span class="line">    sha1_name = data[<span class="string">&#x27;origin&#x27;</span>][<span class="string">&#x27;filename&#x27;</span>].rsplit(<span class="string">&#x27;.&#x27;</span>, <span class="number">1</span>)[<span class="number">0</span>]</span><br><span class="line">    metainfo[<span class="string">&#x27;sha1_name&#x27;</span>] = sha1_name</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 文档统计信息（用于后续质量检查）</span></span><br><span class="line">    metainfo[<span class="string">&#x27;pages_amount&#x27;</span>] = <span class="built_in">len</span>(data.get(<span class="string">&#x27;pages&#x27;</span>, []))</span><br><span class="line">    metainfo[<span class="string">&#x27;text_blocks_amount&#x27;</span>] = <span class="built_in">len</span>(data.get(<span class="string">&#x27;texts&#x27;</span>, []))</span><br><span class="line">    metainfo[<span class="string">&#x27;tables_amount&#x27;</span>] = <span class="built_in">len</span>(data.get(<span class="string">&#x27;tables&#x27;</span>, []))</span><br><span class="line">    metainfo[<span class="string">&#x27;pictures_amount&#x27;</span>] = <span class="built_in">len</span>(data.get(<span class="string">&#x27;pictures&#x27;</span>, []))</span><br><span class="line">    metainfo[<span class="string">&#x27;equations_amount&#x27;</span>] = <span class="built_in">len</span>(data.get(<span class="string">&#x27;equations&#x27;</span>, []))</span><br><span class="line">    metainfo[<span class="string">&#x27;footnotes_amount&#x27;</span>] = <span class="built_in">len</span>(</span><br><span class="line">        [t <span class="keyword">for</span> t <span class="keyword">in</span> data.get(<span class="string">&#x27;texts&#x27;</span>, []) <span class="keyword">if</span> t.get(<span class="string">&#x27;label&#x27;</span>) == <span class="string">&#x27;footnote&#x27;</span>]</span><br><span class="line">    )</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 来自外部CSV的业务元信息（如公司名称）</span></span><br><span class="line">    <span class="keyword">if</span> sha1_name <span class="keyword">in</span> <span class="variable language_">self</span>.metadata_lookup:</span><br><span class="line">        metainfo[<span class="string">&#x27;company_name&#x27;</span>] = <span class="variable language_">self</span>.metadata_lookup[sha1_name][<span class="string">&#x27;company_name&#x27;</span>]</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> metainfo</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>坑3</strong>：不要用文件名作为文档唯一标识。在批量处理时，不同来源的文档可能有相同文件名。用文件内容的 SHA1 哈希作为标识符，既能去重，又能稳定索引。</p>
+</blockquote>
+<h3 id="4-3-外部元信息的关联"><a href="#4-3-外部元信息的关联" class="headerlink" title="4.3 外部元信息的关联"></a>4.3 外部元信息的关联</h3><p>实际项目中，文档的业务信息（如所属公司、年份、分类）往往不在 PDF 里，而在一个外部 CSV 或数据库中。常见做法是用文档的哈希值作为 key 关联：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@staticmethod</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">_parse_csv_metadata</span>(<span class="params">csv_path: Path</span>) -&gt; <span class="built_in">dict</span>:</span><br><span class="line">    <span class="string">&quot;&quot;&quot;从CSV加载元信息，以sha1为key建立查找表&quot;&quot;&quot;</span></span><br><span class="line">    <span class="keyword">import</span> csv</span><br><span class="line">    metadata_lookup = &#123;&#125;</span><br><span class="line">    <span class="keyword">with</span> <span class="built_in">open</span>(csv_path, <span class="string">&#x27;r&#x27;</span>, encoding=<span class="string">&#x27;utf-8&#x27;</span>) <span class="keyword">as</span> csvfile:</span><br><span class="line">        reader = csv.DictReader(csvfile)</span><br><span class="line">        <span class="keyword">for</span> row <span class="keyword">in</span> reader:</span><br><span class="line">            company_name = row.get(<span class="string">&#x27;company_name&#x27;</span>, row.get(<span class="string">&#x27;name&#x27;</span>, <span class="string">&#x27;&#x27;</span>)).strip(<span class="string">&#x27;&quot;&#x27;</span>)</span><br><span class="line">            metadata_lookup[row[<span class="string">&#x27;sha1&#x27;</span>]] = &#123;</span><br><span class="line">                <span class="string">&#x27;company_name&#x27;</span>: company_name</span><br><span class="line">            &#125;</span><br><span class="line">    <span class="keyword">return</span> metadata_lookup</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="5-第三步：文档结构化-——-不只是提取文字"><a href="#5-第三步：文档结构化-——-不只是提取文字" class="headerlink" title="5. 第三步：文档结构化 —— 不只是提取文字"></a>5. 第三步：文档结构化 —— 不只是提取文字</h2><h3 id="5-1-按页面组织内容"><a href="#5-1-按页面组织内容" class="headerlink" title="5.1 按页面组织内容"></a>5.1 按页面组织内容</h3><p>Docling 的输出是一个逻辑文档树（<code>body.children</code>），不是按页面组织的。我们需要将其转换为按页面组织的结构，这对后续的切块和检索非常有用：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 处理后的内容结构</span></span><br><span class="line">&#123;</span><br><span class="line">  <span class="string">&quot;content&quot;</span>: [</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="string">&quot;page&quot;</span>: <span class="number">1</span>,</span><br><span class="line">      <span class="string">&quot;content&quot;</span>: [</span><br><span class="line">        &#123;<span class="string">&quot;type&quot;</span>: <span class="string">&quot;page_header&quot;</span>, <span class="string">&quot;text&quot;</span>: <span class="string">&quot;Annual Report 2023&quot;</span>&#125;,</span><br><span class="line">        &#123;<span class="string">&quot;type&quot;</span>: <span class="string">&quot;section_header&quot;</span>, <span class="string">&quot;text&quot;</span>: <span class="string">&quot;Financial Highlights&quot;</span>&#125;,</span><br><span class="line">        &#123;<span class="string">&quot;type&quot;</span>: <span class="string">&quot;text&quot;</span>, <span class="string">&quot;text&quot;</span>: <span class="string">&quot;Revenue grew by 15%...&quot;</span>&#125;,</span><br><span class="line">        &#123;<span class="string">&quot;type&quot;</span>: <span class="string">&quot;table&quot;</span>, <span class="string">&quot;table_id&quot;</span>: <span class="number">0</span>&#125;,</span><br><span class="line">        &#123;<span class="string">&quot;type&quot;</span>: <span class="string">&quot;text&quot;</span>, <span class="string">&quot;text&quot;</span>: <span class="string">&quot;Note: All figures in USD millions&quot;</span>&#125;</span><br><span class="line">      ],</span><br><span class="line">      <span class="string">&quot;page_dimensions&quot;</span>: &#123;<span class="string">&quot;l&quot;</span>: <span class="number">0</span>, <span class="string">&quot;t&quot;</span>: <span class="number">842</span>, <span class="string">&quot;r&quot;</span>: <span class="number">595</span>, <span class="string">&quot;b&quot;</span>: <span class="number">0</span>&#125;</span><br><span class="line">    &#125;,</span><br><span class="line">    // ...更多页面</span><br><span class="line">  ]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-2-处理页面序号缺口"><a href="#5-2-处理页面序号缺口" class="headerlink" title="5.2 处理页面序号缺口"></a>5.2 处理页面序号缺口</h3><p><strong>这是一个非常容易踩到的坑</strong>。Docling 在某些情况下会跳过没有文本内容的页面（如全图页面），导致页面序号不连续（1, 2, 4, 5…）。如果后续按索引访问页面，会产生越界或错位问题。</p>
+<p>正确做法是填充空页面，保持序号连续：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_normalize_page_sequence</span>(<span class="params">self, data: <span class="built_in">dict</span></span>) -&gt; <span class="built_in">dict</span>:</span><br><span class="line">    <span class="string">&quot;&quot;&quot;填充缺失页面，确保页码序列连续&quot;&quot;&quot;</span></span><br><span class="line">    existing_pages = &#123;page[<span class="string">&#x27;page&#x27;</span>] <span class="keyword">for</span> page <span class="keyword">in</span> data[<span class="string">&#x27;content&#x27;</span>]&#125;</span><br><span class="line">    max_page = <span class="built_in">max</span>(existing_pages)</span><br><span class="line">    </span><br><span class="line">    new_content = []</span><br><span class="line">    <span class="keyword">for</span> page_num <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">1</span>, max_page + <span class="number">1</span>):</span><br><span class="line">        page_content = <span class="built_in">next</span>(</span><br><span class="line">            (page <span class="keyword">for</span> page <span class="keyword">in</span> data[<span class="string">&#x27;content&#x27;</span>] <span class="keyword">if</span> page[<span class="string">&#x27;page&#x27;</span>] == page_num),</span><br><span class="line">            &#123;<span class="string">&quot;page&quot;</span>: page_num, <span class="string">&quot;content&quot;</span>: [], <span class="string">&quot;page_dimensions&quot;</span>: &#123;&#125;&#125;  <span class="comment"># 空页面占位</span></span><br><span class="line">        )</span><br><span class="line">        new_content.append(page_content)</span><br><span class="line">    </span><br><span class="line">    data[<span class="string">&#x27;content&#x27;</span>] = new_content</span><br><span class="line">    <span class="keyword">return</span> data</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-3-处理文档逻辑树中的-Group-引用"><a href="#5-3-处理文档逻辑树中的-Group-引用" class="headerlink" title="5.3 处理文档逻辑树中的 Group 引用"></a>5.3 处理文档逻辑树中的 Group 引用</h3><p>Docling 的 <code>body.children</code> 中有时会出现 <code>$ref</code> 引用（指向 <code>groups</code>、<code>texts</code>、<code>tables</code> 等），需要递归展开。初学者容易忽略 <code>groups</code> 层级的处理：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">expand_groups</span>(<span class="params">self, body_children, groups</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;展开body中的group引用，将group的子项直接平铺到父级&quot;&quot;&quot;</span></span><br><span class="line">    expanded_children = []</span><br><span class="line">    <span class="keyword">for</span> item <span class="keyword">in</span> body_children:</span><br><span class="line">        <span class="keyword">if</span> <span class="built_in">isinstance</span>(item, <span class="built_in">dict</span>) <span class="keyword">and</span> <span class="string">&#x27;$ref&#x27;</span> <span class="keyword">in</span> item:</span><br><span class="line">            ref = item[<span class="string">&#x27;$ref&#x27;</span>]</span><br><span class="line">            ref_type, ref_num = ref.split(<span class="string">&#x27;/&#x27;</span>)[-<span class="number">2</span>:]</span><br><span class="line">            ref_num = <span class="built_in">int</span>(ref_num)</span><br><span class="line">            </span><br><span class="line">            <span class="keyword">if</span> ref_type == <span class="string">&#x27;groups&#x27;</span>:</span><br><span class="line">                <span class="comment"># Group 不是内容，需要展开其子项</span></span><br><span class="line">                group = groups[ref_num]</span><br><span class="line">                <span class="keyword">for</span> child <span class="keyword">in</span> group[<span class="string">&#x27;children&#x27;</span>]:</span><br><span class="line">                    child_copy = child.copy()</span><br><span class="line">                    <span class="comment"># 保留 group 信息，便于后续判断内容归属</span></span><br><span class="line">                    child_copy[<span class="string">&#x27;group_id&#x27;</span>] = ref_num</span><br><span class="line">                    child_copy[<span class="string">&#x27;group_name&#x27;</span>] = group.get(<span class="string">&#x27;name&#x27;</span>, <span class="string">&#x27;&#x27;</span>)</span><br><span class="line">                    child_copy[<span class="string">&#x27;group_label&#x27;</span>] = group.get(<span class="string">&#x27;label&#x27;</span>, <span class="string">&#x27;&#x27;</span>)</span><br><span class="line">                    expanded_children.append(child_copy)</span><br><span class="line">            <span class="keyword">else</span>:</span><br><span class="line">                expanded_children.append(item)</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            expanded_children.append(item)</span><br><span class="line">    <span class="keyword">return</span> expanded_children</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="6-第四步：表格的专项处理"><a href="#6-第四步：表格的专项处理" class="headerlink" title="6. 第四步：表格的专项处理"></a>6. 第四步：表格的专项处理</h2><h3 id="6-1-表格是-RAG-的噩梦"><a href="#6-1-表格是-RAG-的噩梦" class="headerlink" title="6.1 表格是 RAG 的噩梦"></a>6.1 表格是 RAG 的噩梦</h3><p>表格是 RAG 中最难处理的内容类型。直接把 Markdown 表格灌进向量库，检索时有两个问题：</p>
+<ol>
+<li><strong>语义稀疏</strong>：向量模型不擅长理解表格的行列关系，”Q3 Revenue: $5.2B” 和 “Revenue in the third quarter was 5.2 billion dollars” 语义相似度可能很低</li>
+<li><strong>上下文缺失</strong>：一行数据脱离表头就失去了意义，比如 “5,234” 单独看毫无意义，需要知道”这是营收数据，单位是百万美元，Q3 2023”</li>
+</ol>
+<h3 id="6-2-表格序列化：用-LLM-转化为自包含文本块"><a href="#6-2-表格序列化：用-LLM-转化为自包含文本块" class="headerlink" title="6.2 表格序列化：用 LLM 转化为自包含文本块"></a>6.2 表格序列化：用 LLM 转化为自包含文本块</h3><p>解决方案是用 LLM 将每一行（或逻辑相关的几行）转化为一段自包含的自然语言描述：</p>
+<p><strong>原始 Markdown 表格：</strong></p>
+<figure class="highlight markdown"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">| Metric | Q1 2023 | Q2 2023 | Q3 2023 |</span><br><span class="line">|--------|---------|---------|---------|</span><br><span class="line">| Revenue (USD M) | 4,521 | 4,890 | 5,234 |</span><br><span class="line">| Net Income (USD M) | 412 | 456 | 501 |</span><br></pre></td></tr></table></figure>
+
+<p><strong>序列化后的文本块（每行一个）：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">Revenue for the company:</span><br><span class="line">- Q1 2023: USD 4,521 million</span><br><span class="line">- Q2 2023: USD 4,890 million  </span><br><span class="line">- Q3 2023: USD 5,234 million</span><br><span class="line">(Source: Quarterly Financial Summary table, amounts in USD millions)</span><br><span class="line"></span><br><span class="line">Net Income for the company:</span><br><span class="line">- Q1 2023: USD 412 million</span><br><span class="line">- Q2 2023: USD 456 million</span><br><span class="line">- Q3 2023: USD 501 million</span><br><span class="line">(Source: Quarterly Financial Summary table, amounts in USD millions)</span><br></pre></td></tr></table></figure>
+
+<h3 id="6-3-关键：利用表格上下文"><a href="#6-3-关键：利用表格上下文" class="headerlink" title="6.3 关键：利用表格上下文"></a>6.3 关键：利用表格上下文</h3><p>表格旁边的文字（标题、注释、脚注）对理解表格至关重要。在调用 LLM 序列化时，要把这些上下文一并传入：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_get_table_context</span>(<span class="params">self, json_report, target_table_index</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;提取目标表格在页面中的上下文文字&quot;&quot;&quot;</span></span><br><span class="line">    table_info = <span class="built_in">next</span>(t <span class="keyword">for</span> t <span class="keyword">in</span> json_report[<span class="string">&quot;tables&quot;</span>] <span class="keyword">if</span> t[<span class="string">&quot;table_id&quot;</span>] == target_table_index)</span><br><span class="line">    page_num = table_info[<span class="string">&quot;page&quot;</span>]</span><br><span class="line">    page_content = <span class="built_in">next</span>(</span><br><span class="line">        (page[<span class="string">&quot;content&quot;</span>] <span class="keyword">for</span> page <span class="keyword">in</span> json_report[<span class="string">&quot;content&quot;</span>] <span class="keyword">if</span> page[<span class="string">&quot;page&quot;</span>] == page_num), []</span><br><span class="line">    )</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 找到目标表格在页面中的位置</span></span><br><span class="line">    current_pos = <span class="built_in">next</span>(</span><br><span class="line">        i <span class="keyword">for</span> i, block <span class="keyword">in</span> <span class="built_in">enumerate</span>(page_content)</span><br><span class="line">        <span class="keyword">if</span> block[<span class="string">&quot;type&quot;</span>] == <span class="string">&quot;table&quot;</span> <span class="keyword">and</span> block.get(<span class="string">&quot;table_id&quot;</span>) == target_table_index</span><br><span class="line">    )</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 获取相邻表格的位置，限制上下文范围</span></span><br><span class="line">    prev_table_pos = <span class="built_in">next</span>(</span><br><span class="line">        (i <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(current_pos-<span class="number">1</span>, -<span class="number">1</span>, -<span class="number">1</span>) <span class="keyword">if</span> page_content[i][<span class="string">&quot;type&quot;</span>] == <span class="string">&quot;table&quot;</span>),</span><br><span class="line">        -<span class="number">1</span></span><br><span class="line">    )</span><br><span class="line">    next_table_pos = <span class="built_in">next</span>(</span><br><span class="line">        (i <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(current_pos+<span class="number">1</span>, <span class="built_in">len</span>(page_content)) <span class="keyword">if</span> page_content[i][<span class="string">&quot;type&quot;</span>] == <span class="string">&quot;table&quot;</span>),</span><br><span class="line">        -<span class="number">1</span></span><br><span class="line">    )</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 提取上下文文字</span></span><br><span class="line">    start = prev_table_pos + <span class="number">1</span> <span class="keyword">if</span> prev_table_pos != -<span class="number">1</span> <span class="keyword">else</span> <span class="number">0</span></span><br><span class="line">    context_before = <span class="string">&quot;\n&quot;</span>.join(</span><br><span class="line">        b.get(<span class="string">&quot;text&quot;</span>, <span class="string">&quot;&quot;</span>) <span class="keyword">for</span> b <span class="keyword">in</span> page_content[start:current_pos] <span class="keyword">if</span> <span class="string">&quot;text&quot;</span> <span class="keyword">in</span> b</span><br><span class="line">    )</span><br><span class="line">    </span><br><span class="line">    end = <span class="built_in">min</span>(current_pos + <span class="number">4</span>, next_table_pos) <span class="keyword">if</span> next_table_pos != -<span class="number">1</span> <span class="keyword">else</span> current_pos + <span class="number">4</span></span><br><span class="line">    context_after = <span class="string">&quot;\n&quot;</span>.join(</span><br><span class="line">        b.get(<span class="string">&quot;text&quot;</span>, <span class="string">&quot;&quot;</span>) <span class="keyword">for</span> b <span class="keyword">in</span> page_content[current_pos+<span class="number">1</span>:end] <span class="keyword">if</span> <span class="string">&quot;text&quot;</span> <span class="keyword">in</span> b</span><br><span class="line">    )</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> context_before, context_after</span><br></pre></td></tr></table></figure>
+
+<p><strong>LLM Prompt 设计要点：</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">system_prompt = <span class="string">&quot;&quot;&quot;你是一个表格序列化代理。</span></span><br><span class="line"><span class="string">你的任务是基于提供的表格和周围文字，创建一组上下文无关的信息块。</span></span><br><span class="line"><span class="string">这些信息块必须完全独立，因为它们将作为独立的 Chunk 存入数据库。</span></span><br><span class="line"><span class="string">每个 Chunk 必须包含：</span></span><br><span class="line"><span class="string">1. 行头信息（核心主体）</span></span><br><span class="line"><span class="string">2. 所有列头信息（维度说明）</span></span><br><span class="line"><span class="string">3. 单位、货币等说明</span></span><br><span class="line"><span class="string">4. 表格名称或来源说明</span></span><br><span class="line"><span class="string">跳过任何有价值的信息将受到严重惩罚！&quot;&quot;&quot;</span></span><br><span class="line"></span><br><span class="line">user_prompt = <span class="string">f&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">表格前的上下文：</span></span><br><span class="line"><span class="string">&quot;<span class="subst">&#123;context_before&#125;</span>&quot;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">HTML 格式的表格：</span></span><br><span class="line"><span class="string">&quot;<span class="subst">&#123;table_html&#125;</span>&quot;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">表格后的上下文：</span></span><br><span class="line"><span class="string">&quot;<span class="subst">&#123;context_after&#125;</span>&quot;</span></span><br><span class="line"><span class="string">&quot;&quot;&quot;</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>坑4</strong>：不要只传 Markdown 格式的表格给 LLM。<strong>HTML 格式</strong>保留了合并单元格信息（<code>rowspan</code>&#x2F;<code>colspan</code>），对于理解复杂的多级表头非常关键。Markdown 格式在表示合并单元格时会信息丢失。</p>
+</blockquote>
+<h3 id="6-4-序列化结果的存储策略"><a href="#6-4-序列化结果的存储策略" class="headerlink" title="6.4 序列化结果的存储策略"></a>6.4 序列化结果的存储策略</h3><p>序列化后的表格信息有两种使用方式：</p>
+<p><strong>方式一（推荐）：Markdown + 序列化并行存储</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 在切块时，普通文本页面仍使用 Markdown 表格</span></span><br><span class="line"><span class="comment"># 同时将序列化结果作为独立的 Chunk 追加</span></span><br><span class="line"><span class="keyword">for</span> page <span class="keyword">in</span> file_content[<span class="string">&#x27;content&#x27;</span>][<span class="string">&#x27;pages&#x27;</span>]:</span><br><span class="line">    page_chunks = split_page(page)  <span class="comment"># 包含 Markdown 表格的普通切块</span></span><br><span class="line">    chunks.extend(page_chunks)</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 追加序列化表格 Chunk（独立类型，便于区分处理）</span></span><br><span class="line">    <span class="keyword">if</span> page[<span class="string">&#x27;page&#x27;</span>] <span class="keyword">in</span> tables_by_page:</span><br><span class="line">        <span class="keyword">for</span> table_chunk <span class="keyword">in</span> tables_by_page[page[<span class="string">&#x27;page&#x27;</span>]]:</span><br><span class="line">            table_chunk[<span class="string">&#x27;type&#x27;</span>] = <span class="string">&#x27;serialized_table&#x27;</span></span><br><span class="line">            chunks.append(table_chunk)</span><br></pre></td></tr></table></figure>
+
+<p><strong>方式二：替换 Markdown 表格</strong></p>
+<p>直接用序列化文本替换原始 Markdown 表格，更简洁，但丢失了原始表格格式。</p>
+<hr>
+<h2 id="7-第五步：文本清洗-——-容易被忽视的关键环节"><a href="#7-第五步：文本清洗-——-容易被忽视的关键环节" class="headerlink" title="7. 第五步：文本清洗 —— 容易被忽视的关键环节"></a>7. 第五步：文本清洗 —— 容易被忽视的关键环节</h2><h3 id="7-1-OCR-噪声问题"><a href="#7-1-OCR-噪声问题" class="headerlink" title="7.1 OCR 噪声问题"></a>7.1 OCR 噪声问题</h3><p>对于扫描 PDF，OCR 会引入各种噪声。一个常见但极其隐蔽的问题是 <strong>PDF 字体命令残留</strong>。某些 PDF 文件在提取时会保留字体排版指令，例如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Revenue was /five/period/two/three billion dollars in Q3</span><br></pre></td></tr></table></figure>
+
+<p>实际应该是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Revenue was 5.23 billion dollars in Q3</span><br></pre></td></tr></table></figure>
+
+<p>必须用正则清洗这类噪声：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">command_mapping = &#123;</span><br><span class="line">    <span class="string">&#x27;zero&#x27;</span>: <span class="string">&#x27;0&#x27;</span>, <span class="string">&#x27;one&#x27;</span>: <span class="string">&#x27;1&#x27;</span>, <span class="string">&#x27;two&#x27;</span>: <span class="string">&#x27;2&#x27;</span>, <span class="string">&#x27;three&#x27;</span>: <span class="string">&#x27;3&#x27;</span>, <span class="string">&#x27;four&#x27;</span>: <span class="string">&#x27;4&#x27;</span>,</span><br><span class="line">    <span class="string">&#x27;five&#x27;</span>: <span class="string">&#x27;5&#x27;</span>, <span class="string">&#x27;six&#x27;</span>: <span class="string">&#x27;6&#x27;</span>, <span class="string">&#x27;seven&#x27;</span>: <span class="string">&#x27;7&#x27;</span>, <span class="string">&#x27;eight&#x27;</span>: <span class="string">&#x27;8&#x27;</span>, <span class="string">&#x27;nine&#x27;</span>: <span class="string">&#x27;9&#x27;</span>,</span><br><span class="line">    <span class="string">&#x27;period&#x27;</span>: <span class="string">&#x27;.&#x27;</span>, <span class="string">&#x27;comma&#x27;</span>: <span class="string">&#x27;,&#x27;</span>, <span class="string">&#x27;colon&#x27;</span>: <span class="string">&#x27;:&#x27;</span>, <span class="string">&#x27;hyphen&#x27;</span>: <span class="string">&#x27;-&#x27;</span>,</span><br><span class="line">    <span class="string">&#x27;percent&#x27;</span>: <span class="string">&#x27;%&#x27;</span>, <span class="string">&#x27;dollar&#x27;</span>: <span class="string">&#x27;$&#x27;</span>, <span class="string">&#x27;slash&#x27;</span>: <span class="string">&#x27;/&#x27;</span>, <span class="string">&#x27;space&#x27;</span>: <span class="string">&#x27; &#x27;</span>,</span><br><span class="line">    <span class="string">&#x27;plus&#x27;</span>: <span class="string">&#x27;+&#x27;</span>, <span class="string">&#x27;minus&#x27;</span>: <span class="string">&#x27;-&#x27;</span>, <span class="string">&#x27;asterisk&#x27;</span>: <span class="string">&#x27;*&#x27;</span>,</span><br><span class="line">    <span class="string">&#x27;lparen&#x27;</span>: <span class="string">&#x27;(&#x27;</span>, <span class="string">&#x27;rparen&#x27;</span>: <span class="string">&#x27;)&#x27;</span>, <span class="string">&#x27;parenright&#x27;</span>: <span class="string">&#x27;)&#x27;</span>, <span class="string">&#x27;parenleft&#x27;</span>: <span class="string">&#x27;(&#x27;</span>,</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">recognized_commands = <span class="string">&quot;|&quot;</span>.join(command_mapping.keys())</span><br><span class="line">slash_command_pattern = <span class="string">rf&quot;/(<span class="subst">&#123;recognized_commands&#125;</span>)(\.pl\.tnum|\.tnum\.pl|\.pl|\.tnum|\.case|\.sups)?&quot;</span></span><br><span class="line"></span><br><span class="line">text = re.sub(slash_command_pattern, <span class="keyword">lambda</span> m: command_mapping.get(m.group(<span class="number">1</span>), m.group(<span class="number">0</span>)), text)</span><br><span class="line">text = re.sub(<span class="string">r&#x27;glyph&lt;[^&gt;]*&gt;&#x27;</span>, <span class="string">&#x27;&#x27;</span>, text)        <span class="comment"># 清理未识别字形</span></span><br><span class="line">text = re.sub(<span class="string">r&#x27;/([A-Z])\.cap&#x27;</span>, <span class="string">r&#x27;\1&#x27;</span>, text)    <span class="comment"># 修复大写字母编码</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="7-2-用-Markdown-结构化文本，提升切块质量"><a href="#7-2-用-Markdown-结构化文本，提升切块质量" class="headerlink" title="7.2 用 Markdown 结构化文本，提升切块质量"></a>7.2 用 Markdown 结构化文本，提升切块质量</h3><p>将文档的视觉结构映射到 Markdown 语义，可以显著提升后续切块的效果：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_apply_formatting_rules</span>(<span class="params">self, blocks</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;将结构化块转为 Markdown 格式的文本&quot;&quot;&quot;</span></span><br><span class="line">    final_blocks = []</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">for</span> i, block <span class="keyword">in</span> <span class="built_in">enumerate</span>(blocks):</span><br><span class="line">        block_type = block.get(<span class="string">&quot;type&quot;</span>)</span><br><span class="line">        text = block.get(<span class="string">&quot;text&quot;</span>, <span class="string">&quot;&quot;</span>).strip()</span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 忽略页脚和图片</span></span><br><span class="line">        <span class="keyword">if</span> block_type <span class="keyword">in</span> &#123;<span class="string">&quot;page_footer&quot;</span>, <span class="string">&quot;picture&quot;</span>&#125;:</span><br><span class="line">            <span class="keyword">continue</span></span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 页面主标题 → H1</span></span><br><span class="line">        <span class="keyword">if</span> block_type == <span class="string">&quot;page_header&quot;</span>:</span><br><span class="line">            prefix = <span class="string">&quot;\n# &quot;</span> <span class="keyword">if</span> i &lt; <span class="number">3</span> <span class="keyword">else</span> <span class="string">&quot;\n## &quot;</span></span><br><span class="line">            final_blocks.append(<span class="string">f&quot;<span class="subst">&#123;prefix&#125;</span><span class="subst">&#123;text&#125;</span>\n&quot;</span>)</span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 章节标题 → H2</span></span><br><span class="line">        <span class="keyword">elif</span> block_type == <span class="string">&quot;section_header&quot;</span>:</span><br><span class="line">            final_blocks.append(<span class="string">f&quot;\n## <span class="subst">&#123;text&#125;</span>\n&quot;</span>)</span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 段落标题 → H3（尾部有冒号的段落，视为小标题）</span></span><br><span class="line">        <span class="keyword">elif</span> block_type == <span class="string">&quot;paragraph&quot;</span>:</span><br><span class="line">            final_blocks.append(<span class="string">f&quot;\n### <span class="subst">&#123;text&#125;</span>\n&quot;</span>)</span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 列表项 → Markdown 列表</span></span><br><span class="line">        <span class="keyword">elif</span> block_type == <span class="string">&quot;list_item&quot;</span>:</span><br><span class="line">            final_blocks.append(<span class="string">f&quot;- <span class="subst">&#123;text&#125;</span>\n&quot;</span>)</span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 表格：插入 Markdown 表格</span></span><br><span class="line">        <span class="keyword">elif</span> block_type == <span class="string">&quot;table&quot;</span>:</span><br><span class="line">            table_md = <span class="variable language_">self</span>._get_table_markdown(block[<span class="string">&quot;table_id&quot;</span>])</span><br><span class="line">            final_blocks.append(<span class="string">f&quot;\n<span class="subst">&#123;table_md&#125;</span>\n&quot;</span>)</span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 脚注和普通文本</span></span><br><span class="line">        <span class="keyword">elif</span> block_type <span class="keyword">in</span> &#123;<span class="string">&quot;text&quot;</span>, <span class="string">&quot;footnote&quot;</span>, <span class="string">&quot;caption&quot;</span>&#125;:</span><br><span class="line">            <span class="keyword">if</span> text:</span><br><span class="line">                final_blocks.append(<span class="string">f&quot;<span class="subst">&#123;text&#125;</span>\n&quot;</span>)</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> final_blocks</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么要转成 Markdown？</strong></p>
+<p>RecursiveCharacterTextSplitter 等工具会优先在 Markdown 分隔符（<code>#</code>、<code>\n\n</code> 等）处切割，避免在句子中间切断。章节标题 <code>## Revenue Overview</code> 会成为天然的切割点，确保每个 Chunk 以完整的语义单元为边界。</p>
+<h3 id="7-3-表格与脚注的关联处理"><a href="#7-3-表格与脚注的关联处理" class="headerlink" title="7.3 表格与脚注的关联处理"></a>7.3 表格与脚注的关联处理</h3><p><strong>这是一个非常重要但常被忽视的细节</strong>。表格下方的脚注（如”* 金额以百万美元为单位”）往往对理解表格数据至关重要。要将表格及其相关脚注作为一个整体处理，不能被切断：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 识别&quot;表格组&quot;：表头文字 + 表格 + 相关脚注</span></span><br><span class="line"><span class="keyword">if</span> block_type == <span class="string">&quot;table&quot;</span>:</span><br><span class="line">    group_blocks = []</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 如果上一个块以冒号结尾，说明它是这个表格的标题</span></span><br><span class="line">    <span class="keyword">if</span> prev_block_ends_with_colon:</span><br><span class="line">        group_blocks.append(prev_block)</span><br><span class="line">    group_blocks.append(table_block)</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 收集紧跟在表格后面的脚注</span></span><br><span class="line">    <span class="keyword">while</span> next_block.<span class="built_in">type</span> == <span class="string">&quot;footnote&quot;</span>:</span><br><span class="line">        group_blocks.append(next_block)</span><br><span class="line">        advance()</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 将整个表格组渲染为一个不可切割的单元</span></span><br><span class="line">    group_text = render_table_group(group_blocks)</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="8-第六步：文本切块策略"><a href="#8-第六步：文本切块策略" class="headerlink" title="8. 第六步：文本切块策略"></a>8. 第六步：文本切块策略</h2><h3 id="8-1-切块的核心矛盾"><a href="#8-1-切块的核心矛盾" class="headerlink" title="8.1 切块的核心矛盾"></a>8.1 切块的核心矛盾</h3><p>切块大小是一个权衡：</p>
+<ul>
+<li><strong>太小</strong>（&lt; 100 tokens）：单个 Chunk 信息不完整，缺乏上下文，检索到了也没用</li>
+<li><strong>太大</strong>（&gt; 1000 tokens）：向量语义被稀释，精确信息被淹没，检索精度下降</li>
+</ul>
+<p><strong>实践经验</strong>：对于企业文档（年报、合同、技术文档），<strong>200-400 tokens</strong> 的 Chunk 大小是较好的平衡点，重叠（overlap）设为 Chunk 大小的 15%-20%。</p>
+<h3 id="8-2-使用-Token-计数而非字符数"><a href="#8-2-使用-Token-计数而非字符数" class="headerlink" title="8.2 使用 Token 计数而非字符数"></a>8.2 使用 Token 计数而非字符数</h3><p><strong>不要用字符数控制切块大小。</strong> 中文、英文、代码的字符密度差异巨大，1000 个字符可能是 500 tokens（英文），也可能是 300 tokens（中文）。应该直接按 Token 计数：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> tiktoken</span><br><span class="line"><span class="keyword">from</span> langchain.text_splitter <span class="keyword">import</span> RecursiveCharacterTextSplitter</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">count_tokens</span>(<span class="params">text: <span class="built_in">str</span>, encoding_name=<span class="string">&quot;o200k_base&quot;</span></span>) -&gt; <span class="built_in">int</span>:</span><br><span class="line">    <span class="string">&quot;&quot;&quot;精确计算 Token 数（使用与目标模型一致的分词器）&quot;&quot;&quot;</span></span><br><span class="line">    encoding = tiktoken.get_encoding(encoding_name)</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">len</span>(encoding.encode(text))</span><br><span class="line"></span><br><span class="line"><span class="comment"># 使用 from_tiktoken_encoder 确保按 Token 切割</span></span><br><span class="line">text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(</span><br><span class="line">    model_name=<span class="string">&quot;gpt-4o&quot;</span>,    <span class="comment"># 使用与你的 Embedding/LLM 一致的分词器</span></span><br><span class="line">    chunk_size=<span class="number">300</span>,          <span class="comment"># Token 数</span></span><br><span class="line">    chunk_overlap=<span class="number">50</span>         <span class="comment"># 重叠 Token 数</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>坑5</strong>：编码器的选择要与你使用的 Embedding 模型保持一致。OpenAI 的 <code>text-embedding-3-large</code> 使用 <code>cl100k_base</code> 分词器，<code>gpt-4o</code> 使用 <code>o200k_base</code>。两者对同一段文本的 Token 计数可能有差异。</p>
+</blockquote>
+<h3 id="8-3-RecursiveCharacterTextSplitter-的切割优先级"><a href="#8-3-RecursiveCharacterTextSplitter-的切割优先级" class="headerlink" title="8.3 RecursiveCharacterTextSplitter 的切割优先级"></a>8.3 RecursiveCharacterTextSplitter 的切割优先级</h3><p>这是 LangChain 中最常用的切块工具，它按以下优先级寻找切割点（从高到低）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">1. \n\n    （段落间空行 —— 对应 Markdown 块间距）</span><br><span class="line">2. \n      （换行）</span><br><span class="line">3. 。/. /!/?  （句子结束标点）</span><br><span class="line">4. 空格</span><br><span class="line">5. 字符（最后手段）</span><br></pre></td></tr></table></figure>
+
+<p>这就是为什么我们要把文档格式化为 Markdown —— Markdown 的结构恰好与这些切割优先级对齐，能最大概率在”好的位置”切割。</p>
+<h3 id="8-4-按页面切块-vs-全文切块"><a href="#8-4-按页面切块-vs-全文切块" class="headerlink" title="8.4 按页面切块 vs 全文切块"></a>8.4 按页面切块 vs 全文切块</h3><p><strong>强烈推荐按页面切块</strong>，而不是将整个文档拼接后再切块。原因：</p>
+<ol>
+<li><strong>页码元信息</strong>：每个 Chunk 可以知道自己来自第几页，便于溯源</li>
+<li><strong>避免跨页混淆</strong>：两个相邻页面的内容可能没有任何逻辑关联，强行重叠会产生语义噪声</li>
+<li><strong>性能</strong>：更小的处理单元，并行更容易</li>
+</ol>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">split_all_pages</span>(<span class="params">file_content: <span class="built_in">dict</span>, chunk_size: <span class="built_in">int</span> = <span class="number">300</span>, chunk_overlap: <span class="built_in">int</span> = <span class="number">50</span></span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;按页面切块，每个Chunk携带页码信息&quot;&quot;&quot;</span></span><br><span class="line">    all_chunks = []</span><br><span class="line">    chunk_id = <span class="number">0</span></span><br><span class="line">    </span><br><span class="line">    <span class="keyword">for</span> page <span class="keyword">in</span> file_content[<span class="string">&#x27;content&#x27;</span>][<span class="string">&#x27;pages&#x27;</span>]:</span><br><span class="line">        text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(</span><br><span class="line">            model_name=<span class="string">&quot;gpt-4o&quot;</span>,</span><br><span class="line">            chunk_size=chunk_size,</span><br><span class="line">            chunk_overlap=chunk_overlap</span><br><span class="line">        )</span><br><span class="line">        chunks = text_splitter.split_text(page[<span class="string">&#x27;text&#x27;</span>])</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">for</span> chunk_text <span class="keyword">in</span> chunks:</span><br><span class="line">            all_chunks.append(&#123;</span><br><span class="line">                <span class="string">&quot;id&quot;</span>: chunk_id,</span><br><span class="line">                <span class="string">&quot;page&quot;</span>: page[<span class="string">&#x27;page&#x27;</span>],              <span class="comment"># 页码元信息</span></span><br><span class="line">                <span class="string">&quot;text&quot;</span>: chunk_text,</span><br><span class="line">                <span class="string">&quot;length_tokens&quot;</span>: count_tokens(chunk_text),</span><br><span class="line">                <span class="string">&quot;type&quot;</span>: <span class="string">&quot;content&quot;</span></span><br><span class="line">            &#125;)</span><br><span class="line">            chunk_id += <span class="number">1</span></span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> all_chunks</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="9-第七步：切块后的元信息挂载"><a href="#9-第七步：切块后的元信息挂载" class="headerlink" title="9. 第七步：切块后的元信息挂载"></a>9. 第七步：切块后的元信息挂载</h2><h3 id="9-1-每个-Chunk-应携带的信息"><a href="#9-1-每个-Chunk-应携带的信息" class="headerlink" title="9.1 每个 Chunk 应携带的信息"></a>9.1 每个 Chunk 应携带的信息</h3><p>一个完整的 Chunk 对象应该包含以下字段：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="comment"># 必须字段</span></span><br><span class="line">    <span class="string">&quot;id&quot;</span>: <span class="number">42</span>,                              <span class="comment"># 在本文档内的唯一编号</span></span><br><span class="line">    <span class="string">&quot;text&quot;</span>: <span class="string">&quot;Revenue grew by 15%...&quot;</span>,      <span class="comment"># 实际文本内容</span></span><br><span class="line">    <span class="string">&quot;page&quot;</span>: <span class="number">3</span>,                             <span class="comment"># 来源页码</span></span><br><span class="line">    <span class="string">&quot;type&quot;</span>: <span class="string">&quot;content&quot;</span>,                     <span class="comment"># Chunk类型（content/serialized_table）</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 质量监控字段</span></span><br><span class="line">    <span class="string">&quot;length_tokens&quot;</span>: <span class="number">287</span>,                  <span class="comment"># Token 数量（用于调试和质量分析）</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 可选的文档级信息（在检索时从metainfo注入）</span></span><br><span class="line">    <span class="comment"># &quot;sha1_name&quot;: &quot;abc123...&quot;,</span></span><br><span class="line">    <span class="comment"># &quot;company_name&quot;: &quot;Example Corp&quot;,</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="9-2-文档级元信息-vs-Chunk-级元信息的存储策略"><a href="#9-2-文档级元信息-vs-Chunk-级元信息的存储策略" class="headerlink" title="9.2 文档级元信息 vs Chunk 级元信息的存储策略"></a>9.2 文档级元信息 vs Chunk 级元信息的存储策略</h3><p>有两种方案：</p>
+<p><strong>方案A：扁平化（每个Chunk都存文档元信息）</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 每个 Chunk 包含所有元信息</span></span><br><span class="line">chunk = &#123;</span><br><span class="line">    <span class="string">&quot;id&quot;</span>: <span class="number">42</span>,</span><br><span class="line">    <span class="string">&quot;text&quot;</span>: <span class="string">&quot;...&quot;</span>,</span><br><span class="line">    <span class="string">&quot;page&quot;</span>: <span class="number">3</span>,</span><br><span class="line">    <span class="string">&quot;sha1_name&quot;</span>: <span class="string">&quot;abc123&quot;</span>,</span><br><span class="line">    <span class="string">&quot;company_name&quot;</span>: <span class="string">&quot;Example Corp&quot;</span>,</span><br><span class="line">    <span class="string">&quot;document_pages&quot;</span>: <span class="number">48</span>,</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>优点：检索后无需额外查询；缺点：存储冗余。</p>
+<p><strong>方案B：分层存储（推荐）</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 文档级别</span></span><br><span class="line">document = &#123;</span><br><span class="line">    <span class="string">&quot;metainfo&quot;</span>: &#123;</span><br><span class="line">        <span class="string">&quot;sha1_name&quot;</span>: <span class="string">&quot;abc123&quot;</span>,</span><br><span class="line">        <span class="string">&quot;company_name&quot;</span>: <span class="string">&quot;Example Corp&quot;</span>,</span><br><span class="line">        <span class="string">&quot;pages_amount&quot;</span>: <span class="number">48</span>,</span><br><span class="line">        ...</span><br><span class="line">    &#125;,</span><br><span class="line">    <span class="string">&quot;content&quot;</span>: &#123;</span><br><span class="line">        <span class="string">&quot;chunks&quot;</span>: [</span><br><span class="line">            &#123;<span class="string">&quot;id&quot;</span>: <span class="number">42</span>, <span class="string">&quot;page&quot;</span>: <span class="number">3</span>, <span class="string">&quot;text&quot;</span>: <span class="string">&quot;...&quot;</span>, <span class="string">&quot;type&quot;</span>: <span class="string">&quot;content&quot;</span>&#125;,</span><br><span class="line">            ...</span><br><span class="line">        ]</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>检索时，通过 <code>sha1_name</code> 关联文档的 <code>metainfo</code>。存储更紧凑，且文档元信息修改不需要更新所有 Chunk。</p>
+<hr>
+<h2 id="10-常见错误汇总与避坑指南"><a href="#10-常见错误汇总与避坑指南" class="headerlink" title="10. 常见错误汇总与避坑指南"></a>10. 常见错误汇总与避坑指南</h2><h3 id="错误清单"><a href="#错误清单" class="headerlink" title="错误清单"></a>错误清单</h3><table>
+<thead>
+<tr>
+<th>#</th>
+<th>错误</th>
+<th>后果</th>
+<th>正确做法</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>用 PyPDF2 处理多列&#x2F;复杂PDF</td>
+<td>文本顺序混乱，检索内容错误</td>
+<td>使用 Docling 等支持 Layout 分析的工具</td>
+</tr>
+<tr>
+<td>2</td>
+<td>不处理 OCR 噪声</td>
+<td>数字和特殊字符显示为乱码</td>
+<td>用正则清洗字体命令残留</td>
+</tr>
+<tr>
+<td>3</td>
+<td>直接将 Markdown 表格作为 Chunk</td>
+<td>表格行脱离上下文无意义</td>
+<td>用 LLM 序列化表格为自包含文本块</td>
+</tr>
+<tr>
+<td>4</td>
+<td>按字符数切块</td>
+<td>中英文切块大小不一致</td>
+<td>用 tiktoken 按 Token 数切块</td>
+</tr>
+<tr>
+<td>5</td>
+<td>全文拼接后再切块</td>
+<td>丢失页码信息，跨页内容混淆</td>
+<td>按页面独立切块</td>
+</tr>
+<tr>
+<td>6</td>
+<td>不保留页码信息</td>
+<td>无法溯源，用户无法验证</td>
+<td>每个 Chunk 必须携带页码</td>
+</tr>
+<tr>
+<td>7</td>
+<td>不处理页码缺口</td>
+<td>页面数组访问越界</td>
+<td>用空页面填充确保序号连续</td>
+</tr>
+<tr>
+<td>8</td>
+<td>不关联表格的脚注</td>
+<td>表格数据单位&#x2F;货币信息丢失</td>
+<td>将表格+脚注作为整体处理</td>
+</tr>
+<tr>
+<td>9</td>
+<td>用文件名作为文档唯一标识</td>
+<td>文件名冲突导致数据错乱</td>
+<td>用文件内容的 SHA1 哈希</td>
+</tr>
+<tr>
+<td>10</td>
+<td>切块大小太小（&lt; 100 tokens）</td>
+<td>单个 Chunk 信息不完整</td>
+<td>200-400 tokens 是合理范围</td>
+</tr>
+<tr>
+<td>11</td>
+<td>切块大小太大（&gt; 800 tokens）</td>
+<td>向量语义稀释，检索精度下降</td>
+<td>根据实际文档类型调整</td>
+</tr>
+<tr>
+<td>12</td>
+<td>不保存表格的 HTML 格式</td>
+<td>合并单元格信息丢失，LLM 无法正确序列化</td>
+<td>同时保存 Markdown、HTML、JSON 三种格式</td>
+</tr>
+</tbody></table>
+<h3 id="调试技巧"><a href="#调试技巧" class="headerlink" title="调试技巧"></a>调试技巧</h3><ol>
+<li><strong>质量检查</strong>：统计各类型 Chunk 的 token 数分布，发现异常大或异常小的 Chunk</li>
+</ol>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> numpy <span class="keyword">as</span> np</span><br><span class="line"></span><br><span class="line">token_lengths = [chunk[<span class="string">&#x27;length_tokens&#x27;</span>] <span class="keyword">for</span> chunk <span class="keyword">in</span> chunks]</span><br><span class="line"><span class="built_in">print</span>(<span class="string">f&quot;平均: <span class="subst">&#123;np.mean(token_lengths):<span class="number">.1</span>f&#125;</span>&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">f&quot;中位数: <span class="subst">&#123;np.median(token_lengths):<span class="number">.1</span>f&#125;</span>&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">f&quot;最大: <span class="subst">&#123;np.<span class="built_in">max</span>(token_lengths)&#125;</span>&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">f&quot;最小: <span class="subst">&#123;np.<span class="built_in">min</span>(token_lengths)&#125;</span>&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(<span class="string">f&quot;超过500 tokens的Chunk比例: <span class="subst">&#123;<span class="built_in">sum</span>(<span class="number">1</span> <span class="keyword">for</span> t <span class="keyword">in</span> token_lengths <span class="keyword">if</span> t &gt; <span class="number">500</span>) / <span class="built_in">len</span>(token_lengths):<span class="number">.1</span>%&#125;</span>&quot;</span>)</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li><p><strong>可视化检查</strong>：将处理后的文档导出为 Markdown 文件，人工抽查几篇看格式是否正确</p>
+</li>
+<li><p><strong>OCR 质量检查</strong>：统计噪声修正次数，修正量过大说明 PDF 质量差，需要检查</p>
+</li>
+</ol>
+<hr>
+<h2 id="11-完整数据结构参考"><a href="#11-完整数据结构参考" class="headerlink" title="11. 完整数据结构参考"></a>11. 完整数据结构参考</h2><h3 id="处理后的-JSON-结构"><a href="#处理后的-JSON-结构" class="headerlink" title="处理后的 JSON 结构"></a>处理后的 JSON 结构</h3><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;metainfo&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;sha1_name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;a1b2c3d4e5&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;company_name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;Example Corporation&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;pages_amount&quot;</span><span class="punctuation">:</span> <span class="number">48</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;text_blocks_amount&quot;</span><span class="punctuation">:</span> <span class="number">312</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;tables_amount&quot;</span><span class="punctuation">:</span> <span class="number">15</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;pictures_amount&quot;</span><span class="punctuation">:</span> <span class="number">8</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;equations_amount&quot;</span><span class="punctuation">:</span> <span class="number">0</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;footnotes_amount&quot;</span><span class="punctuation">:</span> <span class="number">23</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;content&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;chunks&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">      <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;id&quot;</span><span class="punctuation">:</span> <span class="number">0</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;page&quot;</span><span class="punctuation">:</span> <span class="number">1</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;text&quot;</span><span class="punctuation">:</span> <span class="string">&quot;# Annual Report 2023\n\nExample Corporation delivered strong results...&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;length_tokens&quot;</span><span class="punctuation">:</span> <span class="number">287</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;content&quot;</span></span><br><span class="line">      <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;id&quot;</span><span class="punctuation">:</span> <span class="number">1</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;page&quot;</span><span class="punctuation">:</span> <span class="number">2</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;text&quot;</span><span class="punctuation">:</span> <span class="string">&quot;Revenue for the company in Q3 2023: USD 5,234 million...&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;length_tokens&quot;</span><span class="punctuation">:</span> <span class="number">145</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;serialized_table&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;table_id&quot;</span><span class="punctuation">:</span> <span class="number">3</span></span><br><span class="line">      <span class="punctuation">&#125;</span></span><br><span class="line">    <span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;pages&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">      <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;page&quot;</span><span class="punctuation">:</span> <span class="number">1</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;text&quot;</span><span class="punctuation">:</span> <span class="string">&quot;# Annual Report 2023\n\n## Financial Highlights\n\nExample Corporation delivered strong results...&quot;</span></span><br><span class="line">      <span class="punctuation">&#125;</span></span><br><span class="line">    <span class="punctuation">]</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="流水线代码骨架"><a href="#流水线代码骨架" class="headerlink" title="流水线代码骨架"></a>流水线代码骨架</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pathlib <span class="keyword">import</span> Path</span><br><span class="line"><span class="keyword">from</span> pdf_parsing <span class="keyword">import</span> PDFParser</span><br><span class="line"><span class="keyword">from</span> tables_serialization <span class="keyword">import</span> TableSerializer</span><br><span class="line"><span class="keyword">from</span> parsed_reports_merging <span class="keyword">import</span> PageTextPreparation</span><br><span class="line"><span class="keyword">from</span> text_splitter <span class="keyword">import</span> TextSplitter</span><br><span class="line"></span><br><span class="line"><span class="comment"># 目录配置</span></span><br><span class="line">RAW_PDF_DIR = Path(<span class="string">&quot;./data/raw_pdfs&quot;</span>)</span><br><span class="line">PARSED_DIR = Path(<span class="string">&quot;./data/parsed&quot;</span>)</span><br><span class="line">SERIALIZED_DIR = Path(<span class="string">&quot;./data/serialized_tables&quot;</span>)</span><br><span class="line">MERGED_DIR = Path(<span class="string">&quot;./data/merged&quot;</span>)</span><br><span class="line">CHUNKED_DIR = Path(<span class="string">&quot;./data/chunked&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># Step 1: PDF 解析</span></span><br><span class="line">parser = PDFParser(</span><br><span class="line">    output_dir=PARSED_DIR,</span><br><span class="line">    csv_metadata_path=Path(<span class="string">&quot;./metadata.csv&quot;</span>)</span><br><span class="line">)</span><br><span class="line">parser.parse_and_export(doc_dir=RAW_PDF_DIR)</span><br><span class="line"></span><br><span class="line"><span class="comment"># Step 2: 表格序列化（可选，但强烈推荐）</span></span><br><span class="line">serializer = TableSerializer()</span><br><span class="line">serializer.process_directory_parallel(PARSED_DIR, max_workers=<span class="number">5</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># Step 3: 文本清洗与格式化</span></span><br><span class="line">preparation = PageTextPreparation(</span><br><span class="line">    use_serialized_tables=<span class="literal">True</span>,</span><br><span class="line">    serialized_tables_instead_of_markdown=<span class="literal">False</span>  <span class="comment"># 保留Markdown + 追加序列化描述</span></span><br><span class="line">)</span><br><span class="line">preparation.process_reports(reports_dir=PARSED_DIR, output_dir=MERGED_DIR)</span><br><span class="line"></span><br><span class="line"><span class="comment"># Step 4: 文本切块</span></span><br><span class="line">splitter = TextSplitter()</span><br><span class="line">splitter.split_all_reports(</span><br><span class="line">    all_report_dir=MERGED_DIR,</span><br><span class="line">    output_dir=CHUNKED_DIR</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;文档处理完成！&quot;</span>)</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>文档解析和切块是 RAG 系统的地基。地基不稳，上层再精妙的检索策略和 Prompt 工程也无法挽救。</p>
+<p>核心原则回顾：</p>
+<ol>
+<li><strong>用合适的工具解析 PDF</strong>：Docling &gt; pdfplumber &gt; PyPDF2，选择能理解版式的工具</li>
+<li><strong>元信息是一等公民</strong>：页码、文档来源、文档标识符，从一开始就要设计好并贯穿整个处理流程</li>
+<li><strong>表格需要特殊对待</strong>：序列化为自包含文本块，结合上下文（标题、脚注）处理</li>
+<li><strong>清洗不能省</strong>：OCR 噪声、字体命令残留，这些”看不见的垃圾”会悄悄污染检索结果</li>
+<li><strong>按 Token 切块，按页面划分</strong>：控制精度，保留溯源能力</li>
+<li><strong>用 Markdown 结构化中间表示</strong>：让切块工具能够”理解”文档结构，在合理位置切割</li>
+</ol>
+<p>做好这些，你的 RAG 系统就有了一个坚实的起点。</p>
+<hr>
+<blockquote>
+<p>本系列下一篇：<a href="#">RAG实战（二）-向量化与索引构建</a>，介绍如何把切好的 Chunk 变成可被快速检索的向量索引。</p>
+</blockquote>
+<p><em>本文基于 RAG-Challenge-2 项目的工程实践总结，参考代码见 <code>src/pdf_parsing.py</code>、<code>src/tables_serialization.py</code>、<code>src/parsed_reports_merging.py</code>、<code>src/text_splitter.py</code>。</em></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer"><script src="https://giscus.app/client.js"
+        data-repo="2023Andrewyang/2023Andrewyang.github.io"
+        data-repo-id="R_kgDORLUYLQ"
+        data-category="General"
+        data-category-id="DIC_kwDORLUYLc4C2JUx"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="preferred_color_scheme"
+        data-lang="zh-CN"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+
+
+          <div class="post-tags">
+              <a href="/tags/RAG/" rel="tag"># RAG</a>
+              <a href="/tags/LLM/" rel="tag"># LLM</a>
+              <a href="/tags/AI/" rel="tag"># AI</a>
+              <a href="/tags/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" rel="tag"># 学习笔记</a>
+              <a href="/tags/Python/" rel="tag"># Python</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2026/03/14/RAG%E5%85%A5%E9%97%A8-%E4%BB%80%E4%B9%88%E6%98%AFRAG/" rel="prev" title="RAG入门-什么是RAG">
+                  <i class="fa fa-angle-left"></i> RAG入门-什么是RAG
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2026/03/16/RAG%E5%AE%9E%E6%88%98%EF%BC%88%E4%BA%8C%EF%BC%89-%E5%90%91%E9%87%8F%E5%8C%96%E4%B8%8E%E7%B4%A2%E5%BC%95%E6%9E%84%E5%BB%BA/" rel="next" title="RAG实战（二）-向量化与索引构建">
+                  RAG实战（二）-向量化与索引构建 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">Andrew Yang</span>
+  </div>
+<div class="wordcount">
+  <span class="post-meta-item">
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-line"></i>
+    </span>
+    <span title="站点总字数">60k</span>
+  </span>
+  <span class="post-meta-item">
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">3:37</span>
+  </span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+</body>
+</html>

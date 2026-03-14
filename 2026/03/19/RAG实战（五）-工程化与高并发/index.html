@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" integrity="sha256-VHqXKFhhMxcpubYf9xiWdCiojEbY9NexQ4jh8AxbvcM=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"2023andrewyang.github.io","root":"/","images":"/images","scheme":"Gemini","darkmode":true,"version":"8.27.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"default","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":true,"style":"mac"},"fold":{"enable":false,"height":500},"language":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="本文是 RAG 实战系列第五篇，也是最后一篇。前四篇覆盖了 RAG 的核心链路：文档解析 → 向量化 → 检索 → 问答生成。但一个”能跑通”的系统和一个”能跑好”的系统之间，差距往往在工程细节上。 这一篇讲的是：如何让 RAG 系统处理成百上千个问题时依然稳定、高效、可维护。  本系列基于开源项目 IlyaRice&#x2F;RAG-Challenge-2 的工程实践总结。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="RAG实战（五）-工程化与高并发">
+<meta property="og:url" content="https://2023andrewyang.github.io/2026/03/19/RAG%E5%AE%9E%E6%88%98%EF%BC%88%E4%BA%94%EF%BC%89-%E5%B7%A5%E7%A8%8B%E5%8C%96%E4%B8%8E%E9%AB%98%E5%B9%B6%E5%8F%91/index.html">
+<meta property="og:site_name" content="Andrew&#39;s Blog">
+<meta property="og:description" content="本文是 RAG 实战系列第五篇，也是最后一篇。前四篇覆盖了 RAG 的核心链路：文档解析 → 向量化 → 检索 → 问答生成。但一个”能跑通”的系统和一个”能跑好”的系统之间，差距往往在工程细节上。 这一篇讲的是：如何让 RAG 系统处理成百上千个问题时依然稳定、高效、可维护。  本系列基于开源项目 IlyaRice&#x2F;RAG-Challenge-2 的工程实践总结。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-03-19T02:00:00.000Z">
+<meta property="article:modified_time" content="2026-03-14T09:42:50.000Z">
+<meta property="article:author" content="Andrew Yang">
+<meta property="article:tag" content="RAG">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="AI">
+<meta property="article:tag" content="学习笔记">
+<meta property="article:tag" content="Python">
+<meta property="article:tag" content="并发编程">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://2023andrewyang.github.io/2026/03/19/RAG%E5%AE%9E%E6%88%98%EF%BC%88%E4%BA%94%EF%BC%89-%E5%B7%A5%E7%A8%8B%E5%8C%96%E4%B8%8E%E9%AB%98%E5%B9%B6%E5%8F%91/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://2023andrewyang.github.io/2026/03/19/RAG%E5%AE%9E%E6%88%98%EF%BC%88%E4%BA%94%EF%BC%89-%E5%B7%A5%E7%A8%8B%E5%8C%96%E4%B8%8E%E9%AB%98%E5%B9%B6%E5%8F%91/","path":"2026/03/19/RAG实战（五）-工程化与高并发/","title":"RAG实战（五）-工程化与高并发"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>RAG实战（五）-工程化与高并发 | Andrew's Blog</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/motion.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script>
+
+  
+
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Andrew's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9B%AE%E5%BD%95"><span class="nav-number">1.</span> <span class="nav-text">目录</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E4%B8%A4%E7%A7%8D%E5%B9%B6%E5%8F%91%E6%A8%A1%E5%9E%8B%EF%BC%9AThread-vs-Async%EF%BC%8C%E8%AF%A5%E7%94%A8%E5%93%AA%E4%B8%AA%EF%BC%9F"><span class="nav-number">2.</span> <span class="nav-text">1. 两种并发模型：Thread vs Async，该用哪个？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E5%A4%9A%E7%BA%BF%E7%A8%8B%E5%B9%B6%E8%A1%8C%E9%97%AE%E7%AD%94%EF%BC%9AThreadPoolExecutor-%E7%9A%84%E7%94%A8%E6%B3%95"><span class="nav-number">3.</span> <span class="nav-text">2. 多线程并行问答：ThreadPoolExecutor 的用法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-%E6%89%B9%E9%87%8F%E5%88%86%E5%8F%91%E6%9C%BA%E5%88%B6"><span class="nav-number">3.1.</span> <span class="nav-text">2.1 批量分发机制</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8%E7%9A%84%E7%AD%94%E6%A1%88%E5%AD%98%E5%82%A8"><span class="nav-number">3.2.</span> <span class="nav-text">2.2 线程安全的答案存储</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-%E6%AF%94%E8%BE%83%E5%9E%8B%E9%97%AE%E9%A2%98%E7%9A%84%E5%86%85%E5%B5%8C%E5%B9%B6%E8%A1%8C"><span class="nav-number">3.3.</span> <span class="nav-text">2.3 比较型问题的内嵌并行</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-%E5%BC%82%E6%AD%A5%E6%89%B9%E9%87%8F-API-%E8%B0%83%E7%94%A8%EF%BC%9A%E4%BB%A4%E7%89%8C%E6%A1%B6%E9%99%90%E9%80%9F%E5%99%A8"><span class="nav-number">4.</span> <span class="nav-text">3. 异步批量 API 调用：令牌桶限速器</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81%E4%B8%93%E9%97%A8%E7%9A%84%E9%99%90%E9%80%9F%E5%99%A8"><span class="nav-number">4.1.</span> <span class="nav-text">3.1 为什么需要专门的限速器</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-%E4%BB%A4%E7%89%8C%E6%A1%B6%E7%AE%97%E6%B3%95%EF%BC%9A%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86"><span class="nav-number">4.2.</span> <span class="nav-text">3.2 令牌桶算法：核心原理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-%E9%A2%84%E4%BC%B0-Token-%E6%B6%88%E8%80%97%EF%BC%9A%E5%8F%91%E9%80%81%E5%89%8D%E5%B0%B1%E7%9F%A5%E9%81%93%E8%BF%99%E4%B8%AA%E8%AF%B7%E6%B1%82%E6%9C%89%E5%A4%9A%E8%B4%B5"><span class="nav-number">4.3.</span> <span class="nav-text">3.3 预估 Token 消耗：发送前就知道这个请求有多贵</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-%E5%A4%B1%E8%B4%A5%E9%87%8D%E8%AF%95%E6%9C%BA%E5%88%B6"><span class="nav-number">4.4.</span> <span class="nav-text">3.4 失败重试机制</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E4%B8%AD%E9%97%B4%E7%BB%93%E6%9E%9C%E5%AE%9E%E6%97%B6%E6%8C%81%E4%B9%85%E5%8C%96%EF%BC%9A%E9%98%B2%E6%AD%A2%E5%B4%A9%E6%BA%83%E4%B8%A2%E5%A4%B1%E8%BF%9B%E5%BA%A6"><span class="nav-number">5.</span> <span class="nav-text">4. 中间结果实时持久化：防止崩溃丢失进度</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-%E6%AF%8F%E6%89%B9%E5%AE%8C%E6%88%90%E5%90%8E%E7%AB%8B%E5%8D%B3%E5%AD%98%E6%A1%A3"><span class="nav-number">5.1.</span> <span class="nav-text">4.1 每批完成后立即存档</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-%E5%90%8C%E6%97%B6%E7%BB%B4%E6%8A%A4%E4%B8%A4%E4%B8%AA%E8%BE%93%E5%87%BA%E6%96%87%E4%BB%B6"><span class="nav-number">5.2.</span> <span class="nav-text">4.2 同时维护两个输出文件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-%E7%AD%94%E6%A1%88%E5%90%8E%E5%A4%84%E7%90%86%EF%BC%9A%E9%A1%B5%E7%A0%81%E4%BB%8E-1-based-%E8%BD%AC-0-based"><span class="nav-number">5.3.</span> <span class="nav-text">4.3 答案后处理：页码从 1-based 转 0-based</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86%EF%BC%9A%E7%94%A8-RunConfig-%E5%81%9A-A-B-%E5%AE%9E%E9%AA%8C"><span class="nav-number">6.</span> <span class="nav-text">5. 配置管理：用 RunConfig 做 A&#x2F;B 实验</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-RunConfig-%E7%9A%84%E8%AE%BE%E8%AE%A1"><span class="nav-number">6.1.</span> <span class="nav-text">5.1 RunConfig 的设计</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-%E5%A4%9A%E5%A5%97%E9%A2%84%E8%AE%BE%E9%85%8D%E7%BD%AE"><span class="nav-number">6.2.</span> <span class="nav-text">5.2 多套预设配置</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-%E9%85%8D%E7%BD%AE%E5%A6%82%E4%BD%95%E5%BD%B1%E5%93%8D%E8%B7%AF%E5%BE%84"><span class="nav-number">6.3.</span> <span class="nav-text">5.3 配置如何影响路径</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-%E7%9B%AE%E5%BD%95%E7%BB%93%E6%9E%84%E8%AE%BE%E8%AE%A1%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E5%88%86%E8%BF%99%E4%B9%88%E5%A4%9A%E5%B1%82%EF%BC%9F"><span class="nav-number">7.</span> <span class="nav-text">6. 目录结构设计：为什么要分这么多层？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-debug-%E6%96%87%E4%BB%B6%E4%B8%8E%E5%BC%95%E7%94%A8%E7%B3%BB%E7%BB%9F"><span class="nav-number">8.</span> <span class="nav-text">7. debug 文件与引用系统</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#7-1-%E4%B8%A4%E4%B8%AA%E8%BE%93%E5%87%BA%E6%96%87%E4%BB%B6%E7%9A%84%E5%88%86%E5%B7%A5"><span class="nav-number">8.1.</span> <span class="nav-text">7.1 两个输出文件的分工</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-2-ref-%E5%BC%95%E7%94%A8%E7%B3%BB%E7%BB%9F%EF%BC%9A%E9%81%BF%E5%85%8D%E6%95%B0%E6%8D%AE%E5%86%97%E4%BD%99"><span class="nav-number">8.2.</span> <span class="nav-text">7.2 $ref 引用系统：避免数据冗余</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7-3-response-data%EF%BC%9A%E6%88%90%E6%9C%AC%E8%BF%BD%E8%B8%AA"><span class="nav-number">8.3.</span> <span class="nav-text">7.3 response_data：成本追踪</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#8-%E5%B8%B8%E8%A7%81%E9%94%99%E8%AF%AF%E4%B8%8E%E8%B8%A9%E5%9D%91%E6%8C%87%E5%8D%97"><span class="nav-number">9.</span> <span class="nav-text">8. 常见错误与踩坑指南</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9D%91-1%EF%BC%9A%E5%B9%B6%E5%8F%91%E6%95%B0%E8%AE%BE%E5%A4%AA%E9%AB%98%E8%A7%A6%E5%8F%91-Rate-Limit"><span class="nav-number">9.1.</span> <span class="nav-text">坑 1：并发数设太高触发 Rate Limit</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9D%91-2%EF%BC%9Adebug-%E6%96%87%E4%BB%B6%E4%BD%93%E7%A7%AF%E4%BC%9A%E8%B6%85%E5%87%BA%E9%A2%84%E6%9C%9F"><span class="nav-number">9.2.</span> <span class="nav-text">坑 2：debug 文件体积会超出预期</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9D%91-3%EF%BC%9Aexecutor-map-%E4%BC%9A%E5%90%9E%E6%8E%89%E5%AD%90%E7%BA%BF%E7%A8%8B%E9%87%8C%E7%9A%84%E5%BC%82%E5%B8%B8"><span class="nav-number">9.3.</span> <span class="nav-text">坑 3：executor.map 会吞掉子线程里的异常</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9D%91-4%EF%BC%9A%E4%BF%AE%E6%94%B9%E4%BA%86-Chunk-%E5%86%85%E5%AE%B9%E5%90%8E%E5%BF%98%E8%AE%B0%E9%87%8D%E5%BB%BA%E7%B4%A2%E5%BC%95"><span class="nav-number">9.4.</span> <span class="nav-text">坑 4：修改了 Chunk 内容后忘记重建索引</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-%E7%B3%BB%E5%88%97%E6%80%BB%E7%BB%93%EF%BC%9A%E5%AE%8C%E6%95%B4-RAG-%E6%B5%81%E6%B0%B4%E7%BA%BF%E4%B8%80%E8%A7%88"><span class="nav-number">10.</span> <span class="nav-text">9. 系列总结：完整 RAG 流水线一览</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%85%B3%E9%94%AE%E6%8A%80%E6%9C%AF%E5%86%B3%E7%AD%96%E5%9B%9E%E9%A1%BE"><span class="nav-number">10.1.</span> <span class="nav-text">关键技术决策回顾</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Andrew Yang"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Andrew Yang</p>
+  <div class="site-description" itemprop="description">记录技术、生活与学习</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://2023andrewyang.github.io/2026/03/19/RAG%E5%AE%9E%E6%88%98%EF%BC%88%E4%BA%94%EF%BC%89-%E5%B7%A5%E7%A8%8B%E5%8C%96%E4%B8%8E%E9%AB%98%E5%B9%B6%E5%8F%91/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Andrew Yang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Andrew's Blog">
+      <meta itemprop="description" content="记录技术、生活与学习">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="RAG实战（五）-工程化与高并发 | Andrew's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          RAG实战（五）-工程化与高并发
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2026-03-19 10:00:00" itemprop="dateCreated datePublished" datetime="2026-03-19T10:00:00+08:00">2026-03-19</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-03-14 17:42:50" itemprop="dateModified" datetime="2026-03-14T17:42:50+08:00">2026-03-14</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%8A%80%E6%9C%AF%E6%96%87%E7%AB%A0/" itemprop="url" rel="index"><span itemprop="name">技术文章</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+    <span class="post-meta-break"></span>
+    <span class="post-meta-item" title="本文字数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-file-word"></i>
+      </span>
+      <span class="post-meta-item-text">本文字数：</span>
+      <span>5.2k</span>
+    </span>
+    <span class="post-meta-item" title="阅读时长">
+      <span class="post-meta-item-icon">
+        <i class="far fa-clock"></i>
+      </span>
+      <span class="post-meta-item-text">阅读时长 &asymp;</span>
+      <span>19 分钟</span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>本文是 RAG 实战系列第五篇，也是最后一篇。前四篇覆盖了 RAG 的核心链路：文档解析 → 向量化 → 检索 → 问答生成。但一个”能跑通”的系统和一个”能跑好”的系统之间，差距往往在工程细节上。</p>
+<p>这一篇讲的是：<strong>如何让 RAG 系统处理成百上千个问题时依然稳定、高效、可维护。</strong></p>
+<blockquote>
+<p>本系列基于开源项目 <a target="_blank" rel="noopener" href="https://github.com/IlyaRice/RAG-Challenge-2">IlyaRice&#x2F;RAG-Challenge-2</a> 的工程实践总结。</p>
+</blockquote>
+<hr>
+<span id="more"></span>
+
+<h2 id="目录"><a href="#目录" class="headerlink" title="目录"></a>目录</h2><ol>
+<li><a href="#1-%E4%B8%A4%E7%A7%8D%E5%B9%B6%E5%8F%91%E6%A8%A1%E5%9E%8Bthread-vs-async%E8%AF%A5%E7%94%A8%E5%93%AA%E4%B8%AA">两种并发模型：Thread vs Async，该用哪个？</a></li>
+<li><a href="#2-%E5%A4%9A%E7%BA%BF%E7%A8%8B%E5%B9%B6%E8%A1%8C%E9%97%AE%E7%AD%94threadpoolexecutor-%E7%9A%84%E7%94%A8%E6%B3%95">多线程并行问答：ThreadPoolExecutor 的用法</a></li>
+<li><a href="#3-%E5%BC%82%E6%AD%A5%E6%89%B9%E9%87%8F-api-%E8%B0%83%E7%94%A8%E4%BB%A4%E7%89%8C%E6%A1%B6%E9%99%90%E9%80%9F%E5%99%A8">异步批量 API 调用：令牌桶限速器</a></li>
+<li><a href="#4-%E4%B8%AD%E9%97%B4%E7%BB%93%E6%9E%9C%E5%AE%9E%E6%97%B6%E6%8C%81%E4%B9%85%E5%8C%96%E9%98%B2%E6%AD%A2%E5%B4%A9%E6%BA%83%E4%B8%A2%E5%A4%B1%E8%BF%9B%E5%BA%A6">中间结果实时持久化：防止崩溃丢失进度</a></li>
+<li><a href="#5-%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86%E7%94%A8-runconfig-%E5%81%9A-ab-%E5%AE%9E%E9%AA%8C">配置管理：用 RunConfig 做 A&#x2F;B 实验</a></li>
+<li><a href="#6-%E7%9B%AE%E5%BD%95%E7%BB%93%E6%9E%84%E8%AE%BE%E8%AE%A1%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E5%88%86%E8%BF%99%E4%B9%88%E5%A4%9A%E5%B1%82">目录结构设计：为什么要分这么多层？</a></li>
+<li><a href="#7-debug-%E6%96%87%E4%BB%B6%E4%B8%8E%E5%BC%95%E7%94%A8%E7%B3%BB%E7%BB%9F">debug 文件与引用系统</a></li>
+<li><a href="#8-%E5%B8%B8%E8%A7%81%E9%94%99%E8%AF%AF%E4%B8%8E%E8%B8%A9%E5%9D%91%E6%8C%87%E5%8D%97">常见错误与踩坑指南</a></li>
+<li><a href="#9-%E7%B3%BB%E5%88%97%E6%80%BB%E7%BB%93%E5%AE%8C%E6%95%B4-rag-%E6%B5%81%E6%B0%B4%E7%BA%BF%E4%B8%80%E8%A7%88">系列总结：完整 RAG 流水线一览</a></li>
+</ol>
+<hr>
+<h2 id="1-两种并发模型：Thread-vs-Async，该用哪个？"><a href="#1-两种并发模型：Thread-vs-Async，该用哪个？" class="headerlink" title="1. 两种并发模型：Thread vs Async，该用哪个？"></a>1. 两种并发模型：Thread vs Async，该用哪个？</h2><p>在这个项目里，<strong>两种并发模型同时存在</strong>，各自用在不同的地方：</p>
+<table>
+<thead>
+<tr>
+<th>并发模型</th>
+<th>使用场景</th>
+<th>项目中的代码位置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>多线程（<code>ThreadPoolExecutor</code>）</td>
+<td>并行处理多个独立问题</td>
+<td><code>questions_processing.py</code></td>
+</tr>
+<tr>
+<td>异步（<code>asyncio</code> + <code>aiohttp</code>）</td>
+<td>高吞吐量 API 调用（如大批量 Embedding）</td>
+<td><code>api_request_parallel_processor.py</code></td>
+</tr>
+</tbody></table>
+<p><strong>为什么不统一用一种？</strong></p>
+<p>这是一个常见的困惑。选择依据是：</p>
+<ul>
+<li><p><strong>多线程</strong>适合”每个任务本身就很慢”的场景。一道 RAG 问题的处理链路包括：检索（I&#x2F;O）→ LLM 重排（网络）→ LLM 回答（网络），每一步都是外部调用，单题耗时 3-10 秒。用线程让多道题并行，10 个线程理论上缩短为原来的 1&#x2F;10 时间。</p>
+</li>
+<li><p><strong>异步</strong>适合”需要极高吞吐量”的场景。批量 Embedding 可能要处理数千个 Chunk，每个请求只需几十毫秒，但要同时保持数百个请求在飞，同时还不能触发 Rate Limit。异步 + 令牌桶限速是这种场景的标准解法，线程池在此场景下开销过大（线程本身有内存成本）。</p>
+</li>
+</ul>
+<p><strong>一句话总结</strong>：任务数量不多但每个很慢 → 线程；任务数量巨大但每个很快 → 异步。</p>
+<hr>
+<h2 id="2-多线程并行问答：ThreadPoolExecutor-的用法"><a href="#2-多线程并行问答：ThreadPoolExecutor-的用法" class="headerlink" title="2. 多线程并行问答：ThreadPoolExecutor 的用法"></a>2. 多线程并行问答：ThreadPoolExecutor 的用法</h2><h3 id="2-1-批量分发机制"><a href="#2-1-批量分发机制" class="headerlink" title="2.1 批量分发机制"></a>2.1 批量分发机制</h3><p><code>QuestionsProcessor.process_questions_list()</code> 负责并行处理一批问题：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># src/questions_processing.py</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">process_questions_list</span>(<span class="params">self, questions_list, output_path=<span class="literal">None</span>, ...</span>):</span><br><span class="line">    parallel_threads = <span class="variable language_">self</span>.parallel_requests  <span class="comment"># 例如 10</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> parallel_threads &lt;= <span class="number">1</span>:</span><br><span class="line">        <span class="comment"># 串行模式：调试时用，输出有序，方便追踪</span></span><br><span class="line">        <span class="keyword">for</span> question_data <span class="keyword">in</span> tqdm(questions_with_index):</span><br><span class="line">            result = <span class="variable language_">self</span>._process_single_question(question_data)</span><br><span class="line">            processed_questions.append(result)</span><br><span class="line">            <span class="variable language_">self</span>._save_progress(...)   <span class="comment"># 每题处理完立即存档</span></span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        <span class="comment"># 并行模式：每次取 parallel_threads 道题，同时处理</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">0</span>, total_questions, parallel_threads):</span><br><span class="line">            batch = questions_with_index[i : i + parallel_threads]</span><br><span class="line">            </span><br><span class="line">            <span class="keyword">with</span> ThreadPoolExecutor(max_workers=parallel_threads) <span class="keyword">as</span> executor:</span><br><span class="line">                <span class="comment"># executor.map 保证结果顺序与输入顺序一致（重要！）</span></span><br><span class="line">                batch_results = <span class="built_in">list</span>(executor.<span class="built_in">map</span>(</span><br><span class="line">                    <span class="variable language_">self</span>._process_single_question, batch</span><br><span class="line">                ))</span><br><span class="line">            </span><br><span class="line">            processed_questions.extend(batch_results)</span><br><span class="line">            <span class="variable language_">self</span>._save_progress(...)   <span class="comment"># 每批处理完存一次档</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么用 <code>executor.map</code> 而不是 <code>executor.submit</code>？</strong></p>
+<p><code>executor.map</code> 保证<strong>结果顺序与输入顺序严格一致</strong>——即使第 3 题比第 1 题先完成，<code>map</code> 也会等第 1 题完成后再一起返回。这确保了 <code>processed_questions</code> 列表的顺序是稳定的，与原始 <code>questions_list</code> 保持对应。</p>
+<p>如果用 <code>executor.submit</code> + <code>as_completed</code>，结果会按完成顺序返回，导致最终答案文件里的问题顺序打乱，难以与原始问题列表对照。</p>
+<h3 id="2-2-线程安全的答案存储"><a href="#2-2-线程安全的答案存储" class="headerlink" title="2.2 线程安全的答案存储"></a>2.2 线程安全的答案存储</h3><p>并行处理时多个线程会同时写入 <code>answer_details</code> 列表，需要用锁保护：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable language_">self</span>.answer_details = [<span class="literal">None</span>] * total_questions  <span class="comment"># 预分配列表（固定大小，线程安全地按索引写入）</span></span><br><span class="line"><span class="variable language_">self</span>._lock = threading.Lock()</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">_create_answer_detail_ref</span>(<span class="params">self, answer_dict, question_index</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;线程安全地存储答案详情&quot;&quot;&quot;</span></span><br><span class="line">    ref_id = <span class="string">f&quot;#/answer_details/<span class="subst">&#123;question_index&#125;</span>&quot;</span></span><br><span class="line">    <span class="keyword">with</span> <span class="variable language_">self</span>._lock:                                  <span class="comment"># 加锁，防止竞态</span></span><br><span class="line">        <span class="variable language_">self</span>.answer_details[question_index] = &#123;</span><br><span class="line">            <span class="string">&quot;step_by_step_analysis&quot;</span>: answer_dict[<span class="string">&#x27;step_by_step_analysis&#x27;</span>],</span><br><span class="line">            <span class="string">&quot;relevant_pages&quot;</span>: answer_dict[<span class="string">&#x27;relevant_pages&#x27;</span>],</span><br><span class="line">            ...</span><br><span class="line">            <span class="string">&quot;self&quot;</span>: ref_id</span><br><span class="line">        &#125;</span><br><span class="line">    <span class="keyword">return</span> ref_id</span><br></pre></td></tr></table></figure>
+
+<p>**预分配列表 vs <code>append</code>**：这里用 <code>[None] * total_questions</code> 预分配固定大小的列表，然后按索引写入（<code>self.answer_details[question_index] = ...</code>）。这比用 <code>append</code> 更安全——不同线程按不同索引写入不同位置，天然无冲突（Python 列表按索引的写入是原子操作），锁只保护极少数需要读-改-写的操作。</p>
+<h3 id="2-3-比较型问题的内嵌并行"><a href="#2-3-比较型问题的内嵌并行" class="headerlink" title="2.3 比较型问题的内嵌并行"></a>2.3 比较型问题的内嵌并行</h3><p>比较型问题内部还有一层并行——对多家公司同时发起子查询：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">process_comparative_question</span>(<span class="params">self, question, companies, schema</span>):</span><br><span class="line">    <span class="comment"># 外层：process_questions_list 的线程负责这整道比较题</span></span><br><span class="line">    <span class="comment"># 内层：对每家公司并行检索+回答</span></span><br><span class="line">    </span><br><span class="line">    <span class="keyword">with</span> ThreadPoolExecutor() <span class="keyword">as</span> executor:</span><br><span class="line">        future_to_company = &#123;</span><br><span class="line">            executor.submit(<span class="variable language_">self</span>.get_answer_for_company, company, sub_question, <span class="string">&quot;number&quot;</span>): company</span><br><span class="line">            <span class="keyword">for</span> company <span class="keyword">in</span> companies</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">for</span> future <span class="keyword">in</span> as_completed(future_to_company):</span><br><span class="line">            company, answer_dict = future.result()</span><br><span class="line">            individual_answers[company] = answer_dict</span><br></pre></td></tr></table></figure>
+
+<p>这形成了<strong>两层并行</strong>：外层 10 个线程并行处理 10 道问题，其中比较型问题内部还会再开若干线程并行处理子公司查询。这在题目数量多且包含大量比较题时，对总耗时的缩减非常显著。</p>
+<hr>
+<h2 id="3-异步批量-API-调用：令牌桶限速器"><a href="#3-异步批量-API-调用：令牌桶限速器" class="headerlink" title="3. 异步批量 API 调用：令牌桶限速器"></a>3. 异步批量 API 调用：令牌桶限速器</h2><h3 id="3-1-为什么需要专门的限速器"><a href="#3-1-为什么需要专门的限速器" class="headerlink" title="3.1 为什么需要专门的限速器"></a>3.1 为什么需要专门的限速器</h3><p>OpenAI API 有两个限制维度：</p>
+<ul>
+<li><strong>RPM（Requests Per Minute）</strong>：每分钟最多发多少次请求</li>
+<li><strong>TPM（Tokens Per Minute）</strong>：每分钟最多消耗多少 Token</li>
+</ul>
+<p>如果你的代码是：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># ❌ 不做限速，直接并发 1000 个请求</span></span><br><span class="line"><span class="keyword">async</span> <span class="keyword">def</span> <span class="title function_">bad_approach</span>():</span><br><span class="line">    tasks = [call_api(req) <span class="keyword">for</span> req <span class="keyword">in</span> 1000_requests]</span><br><span class="line">    <span class="keyword">await</span> asyncio.gather(*tasks)</span><br></pre></td></tr></table></figure>
+
+<p>这会在 1 秒内触发 OpenAI 的 Rate Limit（429 错误），导致大量请求失败并需要重试，实际效率反而更低。</p>
+<h3 id="3-2-令牌桶算法：核心原理"><a href="#3-2-令牌桶算法：核心原理" class="headerlink" title="3.2 令牌桶算法：核心原理"></a>3.2 令牌桶算法：核心原理</h3><p><code>api_request_parallel_processor.py</code> 实现了一个经典的<strong>令牌桶（Token Bucket）</strong>限速器：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">想象有两个桶：</span><br><span class="line">  桶1（请求桶）：容量 = max_requests_per_minute，每秒补充 max_rpm/60 个&quot;请求令牌&quot;</span><br><span class="line">  桶2（Token桶）：容量 = max_tokens_per_minute，每秒补充 max_tpm/60 个&quot;Token令牌&quot;</span><br><span class="line"></span><br><span class="line">发起一个 API 请求时：</span><br><span class="line">  1. 检查请求桶：有没有至少 1 个请求令牌？</span><br><span class="line">  2. 检查 Token 桶：有没有足够的 Token 令牌（等于这个请求预估消耗的 Token 数）？</span><br><span class="line">  3. 两个桶都够 → 同时从两个桶各取所需 → 发起请求</span><br><span class="line">  4. 任意一个桶不够 → 等待，直到桶里积累了足够的令牌</span><br></pre></td></tr></table></figure>
+
+<p>代码实现：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># api_request_parallel_processor.py</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 主循环：每 1ms 迭代一次</span></span><br><span class="line"><span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">    <span class="comment"># 根据时间流逝，向两个桶补充令牌</span></span><br><span class="line">    current_time = time.time()</span><br><span class="line">    seconds_since_update = current_time - last_update_time</span><br><span class="line">    </span><br><span class="line">    available_request_capacity = <span class="built_in">min</span>(</span><br><span class="line">        available_request_capacity + max_requests_per_minute * seconds_since_update / <span class="number">60.0</span>,</span><br><span class="line">        max_requests_per_minute   <span class="comment"># 桶有上限，不会无限累积</span></span><br><span class="line">    )</span><br><span class="line">    available_token_capacity = <span class="built_in">min</span>(</span><br><span class="line">        available_token_capacity + max_tokens_per_minute * seconds_since_update / <span class="number">60.0</span>,</span><br><span class="line">        max_tokens_per_minute</span><br><span class="line">    )</span><br><span class="line">    last_update_time = current_time</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 检查是否有足够容量发起下一个请求</span></span><br><span class="line">    <span class="keyword">if</span> next_request:</span><br><span class="line">        <span class="keyword">if</span> (available_request_capacity &gt;= <span class="number">1</span> </span><br><span class="line">                <span class="keyword">and</span> available_token_capacity &gt;= next_request.token_consumption):</span><br><span class="line">            <span class="comment"># 从两个桶里各取令牌</span></span><br><span class="line">            available_request_capacity -= <span class="number">1</span></span><br><span class="line">            available_token_capacity -= next_request.token_consumption</span><br><span class="line">            <span class="comment"># 异步发起请求（不阻塞主循环）</span></span><br><span class="line">            asyncio.create_task(next_request.call_api(...))</span><br><span class="line">            next_request = <span class="literal">None</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 如果触发了 Rate Limit，冷却 15 秒</span></span><br><span class="line">    <span class="keyword">if</span> seconds_since_rate_limit_error &lt; <span class="number">15</span>:</span><br><span class="line">        <span class="keyword">await</span> asyncio.sleep(remaining_seconds_to_pause)</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">await</span> asyncio.sleep(<span class="number">0.001</span>)   <span class="comment"># 主循环每 1ms 检查一次</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="3-3-预估-Token-消耗：发送前就知道这个请求有多贵"><a href="#3-3-预估-Token-消耗：发送前就知道这个请求有多贵" class="headerlink" title="3.3 预估 Token 消耗：发送前就知道这个请求有多贵"></a>3.3 预估 Token 消耗：发送前就知道这个请求有多贵</h3><p>限速的关键在于<strong>发送请求之前就知道它会消耗多少 Token</strong>，而不是发送后再统计。<code>num_tokens_consumed_from_request()</code> 实现了这个预估：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">num_tokens_consumed_from_request</span>(<span class="params">request_json, api_endpoint, token_encoding_name</span>):</span><br><span class="line">    encoding = tiktoken.get_encoding(token_encoding_name)</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> api_endpoint.endswith(<span class="string">&quot;completions&quot;</span>):</span><br><span class="line">        <span class="comment"># Chat Completions 请求：计算所有 messages 的 token 数 + 最大输出 token</span></span><br><span class="line">        num_tokens = <span class="number">0</span></span><br><span class="line">        <span class="keyword">for</span> message <span class="keyword">in</span> request_json[<span class="string">&quot;messages&quot;</span>]:</span><br><span class="line">            num_tokens += <span class="number">4</span>  <span class="comment"># 每条消息有固定的格式开销（&lt;im_start&gt;role\ncontent&lt;im_end&gt;）</span></span><br><span class="line">            <span class="keyword">for</span> key, value <span class="keyword">in</span> message.items():</span><br><span class="line">                num_tokens += <span class="built_in">len</span>(encoding.encode(value))</span><br><span class="line">        num_tokens += <span class="number">2</span>  <span class="comment"># 回复前缀开销</span></span><br><span class="line">        num_tokens += request_json.get(<span class="string">&quot;max_tokens&quot;</span>, <span class="number">15</span>)  <span class="comment"># 预估最大输出</span></span><br><span class="line">        <span class="keyword">return</span> num_tokens</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">elif</span> api_endpoint == <span class="string">&quot;embeddings&quot;</span>:</span><br><span class="line">        <span class="comment"># Embedding 请求：直接计算输入文本的 token 数</span></span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">sum</span>(<span class="built_in">len</span>(encoding.encode(text)) <span class="keyword">for</span> text <span class="keyword">in</span> request_json[<span class="string">&quot;input&quot;</span>])</span><br></pre></td></tr></table></figure>
+
+<p>这个预估的准确性决定了限速效果：过估（预估比实际多）会让吞吐量低于理论上限，但不会触发限速；欠估会触发 429 并需要降速重试。</p>
+<h3 id="3-4-失败重试机制"><a href="#3-4-失败重试机制" class="headerlink" title="3.4 失败重试机制"></a>3.4 失败重试机制</h3><p>每个 API 请求对象（<code>APIRequest</code>）携带 <code>attempts_left</code> 计数器，失败时放回重试队列：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@dataclass</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">APIRequest</span>:</span><br><span class="line">    task_id: <span class="built_in">int</span></span><br><span class="line">    request_json: <span class="built_in">dict</span></span><br><span class="line">    token_consumption: <span class="built_in">int</span></span><br><span class="line">    attempts_left: <span class="built_in">int</span>   <span class="comment"># 初始值 = max_attempts（默认 5）</span></span><br><span class="line">    </span><br><span class="line">    <span class="keyword">async</span> <span class="keyword">def</span> <span class="title function_">call_api</span>(<span class="params">self, session, retry_queue, ...</span>):</span><br><span class="line">        <span class="keyword">try</span>:</span><br><span class="line">            response = <span class="keyword">await</span> session.post(url, json=<span class="variable language_">self</span>.request_json)</span><br><span class="line">            <span class="keyword">if</span> <span class="string">&quot;error&quot;</span> <span class="keyword">in</span> response:</span><br><span class="line">                <span class="keyword">if</span> <span class="string">&quot;rate limit&quot;</span> <span class="keyword">in</span> response[<span class="string">&quot;error&quot;</span>][<span class="string">&quot;message&quot;</span>].lower():</span><br><span class="line">                    <span class="comment"># 记录触发时间，主循环会自动冷却 15 秒</span></span><br><span class="line">                    status_tracker.time_of_last_rate_limit_error = time.time()</span><br><span class="line">                </span><br><span class="line">                <span class="variable language_">self</span>.attempts_left -= <span class="number">1</span></span><br><span class="line">                <span class="keyword">if</span> <span class="variable language_">self</span>.attempts_left &gt; <span class="number">0</span>:</span><br><span class="line">                    retry_queue.put_nowait(<span class="variable language_">self</span>)   <span class="comment"># 放回队列，等待重试</span></span><br><span class="line">                <span class="keyword">else</span>:</span><br><span class="line">                    <span class="comment"># 超过最大重试次数，记录错误并放弃</span></span><br><span class="line">                    append_to_jsonl([<span class="variable language_">self</span>.request_json, errors], save_filepath)</span><br><span class="line">                    status_tracker.num_tasks_failed += <span class="number">1</span></span><br><span class="line">        <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">            <span class="comment"># 网络错误等也进入重试流程</span></span><br><span class="line">            ...</span><br></pre></td></tr></table></figure>
+
+<p>主循环里，重试队列的优先级高于新请求队列：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> <span class="keyword">not</span> queue_of_requests_to_retry.empty():</span><br><span class="line">    next_request = queue_of_requests_to_retry.get_nowait()  <span class="comment"># 优先处理重试</span></span><br><span class="line"><span class="keyword">elif</span> file_not_finished:</span><br><span class="line">    next_request = read_next_from_file()                     <span class="comment"># 再处理新请求</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="4-中间结果实时持久化：防止崩溃丢失进度"><a href="#4-中间结果实时持久化：防止崩溃丢失进度" class="headerlink" title="4. 中间结果实时持久化：防止崩溃丢失进度"></a>4. 中间结果实时持久化：防止崩溃丢失进度</h2><p>处理大批量问题时（竞赛数据集有数百道题），程序可能在中途因网络错误、内存不足或手动中断而崩溃。如果不做持久化，所有已完成的答案就白跑了。</p>
+<h3 id="4-1-每批完成后立即存档"><a href="#4-1-每批完成后立即存档" class="headerlink" title="4.1 每批完成后立即存档"></a>4.1 每批完成后立即存档</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 每处理完一批（parallel_threads 道题），立即写入文件</span></span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">0</span>, total_questions, parallel_threads):</span><br><span class="line">    batch_results = <span class="built_in">list</span>(executor.<span class="built_in">map</span>(<span class="variable language_">self</span>._process_single_question, batch))</span><br><span class="line">    processed_questions.extend(batch_results)</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 立即保存当前进度（覆盖写，不是追加写）</span></span><br><span class="line">    <span class="keyword">if</span> output_path:</span><br><span class="line">        <span class="variable language_">self</span>._save_progress(</span><br><span class="line">            processed_questions,</span><br><span class="line">            output_path,</span><br><span class="line">            submission_file=submission_file,</span><br><span class="line">            ...</span><br><span class="line">        )</span><br></pre></td></tr></table></figure>
+
+<p>这意味着如果程序在处理第 50 道题时崩溃，前 40 道题的结果（以每批 10 题为例）已经安全保存在文件里了，损失的只是当前批次的进度。</p>
+<h3 id="4-2-同时维护两个输出文件"><a href="#4-2-同时维护两个输出文件" class="headerlink" title="4.2 同时维护两个输出文件"></a>4.2 同时维护两个输出文件</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_save_progress</span>(<span class="params">self, processed_questions, output_path, submission_file=<span class="literal">False</span>, ...</span>):</span><br><span class="line">    statistics = <span class="variable language_">self</span>._calculate_statistics(processed_questions)</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 文件1：debug 文件（完整信息，用于调试）</span></span><br><span class="line">    result = &#123;</span><br><span class="line">        <span class="string">&quot;questions&quot;</span>: processed_questions,</span><br><span class="line">        <span class="string">&quot;answer_details&quot;</span>: <span class="variable language_">self</span>.answer_details,</span><br><span class="line">        <span class="string">&quot;statistics&quot;</span>: statistics</span><br><span class="line">    &#125;</span><br><span class="line">    debug_file = output_file.with_name(output_file.stem + <span class="string">&quot;_debug&quot;</span> + output_file.suffix)</span><br><span class="line">    <span class="keyword">with</span> <span class="built_in">open</span>(debug_file, <span class="string">&#x27;w&#x27;</span>, encoding=<span class="string">&#x27;utf-8&#x27;</span>) <span class="keyword">as</span> f:</span><br><span class="line">        json.dump(result, f, ensure_ascii=<span class="literal">False</span>, indent=<span class="number">2</span>)</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 文件2：提交文件（精简格式，用于竞赛提交或对外接口）</span></span><br><span class="line">    <span class="keyword">if</span> submission_file:</span><br><span class="line">        submission_answers = <span class="variable language_">self</span>._post_process_submission_answers(processed_questions)</span><br><span class="line">        submission = &#123;</span><br><span class="line">            <span class="string">&quot;answers&quot;</span>: submission_answers,</span><br><span class="line">            <span class="string">&quot;team_email&quot;</span>: team_email,</span><br><span class="line">            <span class="string">&quot;submission_name&quot;</span>: submission_name,</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">with</span> <span class="built_in">open</span>(output_file, <span class="string">&#x27;w&#x27;</span>, encoding=<span class="string">&#x27;utf-8&#x27;</span>) <span class="keyword">as</span> f:</span><br><span class="line">            json.dump(submission, f, ensure_ascii=<span class="literal">False</span>, indent=<span class="number">2</span>)</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么是覆盖写而不是追加写？</strong></p>
+<p>覆盖写确保文件始终是合法的完整 JSON（包含所有已处理的答案），随时可以读取或提交。追加写在崩溃时可能留下半截 JSON，无法直接解析。</p>
+<h3 id="4-3-答案后处理：页码从-1-based-转-0-based"><a href="#4-3-答案后处理：页码从-1-based-转-0-based" class="headerlink" title="4.3 答案后处理：页码从 1-based 转 0-based"></a>4.3 答案后处理：页码从 1-based 转 0-based</h3><p>提交文件里的页码引用需要做一次转换：程序内部用 1-based 页码（符合人类阅读习惯），竞赛提交要求 0-based：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_post_process_submission_answers</span>(<span class="params">self, processed_questions</span>):</span><br><span class="line">    <span class="keyword">for</span> q <span class="keyword">in</span> processed_questions:</span><br><span class="line">        value = q.get(<span class="string">&quot;value&quot;</span>)</span><br><span class="line">        references = q.get(<span class="string">&quot;references&quot;</span>, [])</span><br><span class="line">        </span><br><span class="line">        <span class="comment"># N/A 的答案清空引用（不需要溯源）</span></span><br><span class="line">        <span class="keyword">if</span> value == <span class="string">&quot;N/A&quot;</span>:</span><br><span class="line">            references = []</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            <span class="comment"># 1-based → 0-based 转换</span></span><br><span class="line">            references = [</span><br><span class="line">                &#123;</span><br><span class="line">                    <span class="string">&quot;pdf_sha1&quot;</span>: ref[<span class="string">&quot;pdf_sha1&quot;</span>],</span><br><span class="line">                    <span class="string">&quot;page_index&quot;</span>: ref[<span class="string">&quot;page_index&quot;</span>] - <span class="number">1</span>   <span class="comment"># 减 1</span></span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">for</span> ref <span class="keyword">in</span> references</span><br><span class="line">            ]</span><br></pre></td></tr></table></figure>
+
+<p>这里有个容易忽视的细节：<strong>不同系统对页码的约定可能不同</strong>。在调试阶段用 1-based 方便对照 PDF 阅读器（PDF 阅读器通常显示 1-based 页码），对外接口再转换为所需格式。在代码里统一维护一种表示，只在输出时转换，能避免很多难以排查的”差一页”错误。</p>
+<hr>
+<h2 id="5-配置管理：用-RunConfig-做-A-B-实验"><a href="#5-配置管理：用-RunConfig-做-A-B-实验" class="headerlink" title="5. 配置管理：用 RunConfig 做 A&#x2F;B 实验"></a>5. 配置管理：用 RunConfig 做 A&#x2F;B 实验</h2><h3 id="5-1-RunConfig-的设计"><a href="#5-1-RunConfig-的设计" class="headerlink" title="5.1 RunConfig 的设计"></a>5.1 RunConfig 的设计</h3><p><code>RunConfig</code> 是一个 <code>dataclass</code>，把所有可调参数集中在一个地方：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@dataclass</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">RunConfig</span>:</span><br><span class="line">    use_serialized_tables: <span class="built_in">bool</span> = <span class="literal">False</span>      <span class="comment"># 是否使用 LLM 序列化的表格</span></span><br><span class="line">    parent_document_retrieval: <span class="built_in">bool</span> = <span class="literal">False</span>  <span class="comment"># 是否返回整页（而非 Chunk）</span></span><br><span class="line">    use_vector_dbs: <span class="built_in">bool</span> = <span class="literal">True</span>              <span class="comment"># 是否使用向量检索</span></span><br><span class="line">    use_bm25_db: <span class="built_in">bool</span> = <span class="literal">False</span>                <span class="comment"># 是否使用 BM25 检索</span></span><br><span class="line">    llm_reranking: <span class="built_in">bool</span> = <span class="literal">False</span>              <span class="comment"># 是否开启 LLM 重排</span></span><br><span class="line">    llm_reranking_sample_size: <span class="built_in">int</span> = <span class="number">30</span>      <span class="comment"># LLM 重排前的候选数量</span></span><br><span class="line">    top_n_retrieval: <span class="built_in">int</span> = <span class="number">10</span>                <span class="comment"># 最终返回的上下文数量</span></span><br><span class="line">    parallel_requests: <span class="built_in">int</span> = <span class="number">10</span>             <span class="comment"># 并发问题数</span></span><br><span class="line">    api_provider: <span class="built_in">str</span> = <span class="string">&quot;openai&quot;</span>             <span class="comment"># LLM 提供商</span></span><br><span class="line">    answering_model: <span class="built_in">str</span> = <span class="string">&quot;gpt-4o-mini&quot;</span>     <span class="comment"># 回答模型</span></span><br><span class="line">    full_context: <span class="built_in">bool</span> = <span class="literal">False</span>              <span class="comment"># 是否用全文档上下文（非 RAG 模式）</span></span><br><span class="line">    config_suffix: <span class="built_in">str</span> = <span class="string">&quot;&quot;</span>                  <span class="comment"># 输出文件名后缀（区分不同实验）</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="5-2-多套预设配置"><a href="#5-2-多套预设配置" class="headerlink" title="5.2 多套预设配置"></a>5.2 多套预设配置</h3><p>项目里预定义了多套配置，对应不同的实验目的：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># pipeline.py</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 最简配置（快速验证流程是否通）</span></span><br><span class="line">base_config = RunConfig(</span><br><span class="line">    parallel_requests=<span class="number">10</span>,</span><br><span class="line">    config_suffix=<span class="string">&quot;_base&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 加入 Parent Document Retrieval</span></span><br><span class="line">parent_document_retrieval_config = RunConfig(</span><br><span class="line">    parent_document_retrieval=<span class="literal">True</span>,</span><br><span class="line">    answering_model=<span class="string">&quot;gpt-4o-2024-08-06&quot;</span>,</span><br><span class="line">    config_suffix=<span class="string">&quot;_pdr&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 全套旗舰配置（最终提交用）</span></span><br><span class="line">max_nst_o3m_config = RunConfig(</span><br><span class="line">    use_serialized_tables=<span class="literal">False</span>,</span><br><span class="line">    parent_document_retrieval=<span class="literal">True</span>,</span><br><span class="line">    llm_reranking=<span class="literal">True</span>,</span><br><span class="line">    llm_reranking_sample_size=<span class="number">30</span>,</span><br><span class="line">    top_n_retrieval=<span class="number">10</span>,</span><br><span class="line">    parallel_requests=<span class="number">25</span>,</span><br><span class="line">    answering_model=<span class="string">&quot;o3-mini-2025-01-31&quot;</span>,</span><br><span class="line">    config_suffix=<span class="string">&quot;_max_nst_o3m&quot;</span>   <span class="comment"># 输出文件：answers_max_nst_o3m.json</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 大上下文窗口配置</span></span><br><span class="line">max_nst_o3m_config_big_context = RunConfig(</span><br><span class="line">    parent_document_retrieval=<span class="literal">True</span>,</span><br><span class="line">    llm_reranking=<span class="literal">True</span>,</span><br><span class="line">    llm_reranking_sample_size=<span class="number">36</span>,  <span class="comment"># 候选数增大</span></span><br><span class="line">    top_n_retrieval=<span class="number">14</span>,            <span class="comment"># 最终上下文数增大</span></span><br><span class="line">    parallel_requests=<span class="number">5</span>,           <span class="comment"># 并发减小（单题消耗 token 更多，防止超限）</span></span><br><span class="line">    answering_model=<span class="string">&quot;o3-mini-2025-01-31&quot;</span>,</span><br><span class="line">    config_suffix=<span class="string">&quot;_max_nst_o3m_bc&quot;</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p><strong><code>config_suffix</code> 的妙用</strong>：每个配置输出的文件名包含后缀，所以同一个数据集上跑多套配置，结果文件不会互相覆盖：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">answers_base.json</span><br><span class="line">answers_pdr.json</span><br><span class="line">answers_max_nst_o3m.json</span><br><span class="line">answers_max_nst_o3m_bc.json</span><br></pre></td></tr></table></figure>
+
+<p>可以直接对比这四个文件，看每套配置的准确率差异。这是做系统性 A&#x2F;B 实验的基础设施。</p>
+<h3 id="5-3-配置如何影响路径"><a href="#5-3-配置如何影响路径" class="headerlink" title="5.3 配置如何影响路径"></a>5.3 配置如何影响路径</h3><p><code>PipelineConfig</code> 根据 <code>RunConfig</code> 的设置，自动推导出所有中间目录的路径：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">PipelineConfig</span>:</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, root_path, ..., serialized=<span class="literal">False</span>, config_suffix=<span class="string">&quot;&quot;</span></span>):</span><br><span class="line">        <span class="comment"># 序列化表格 → 单独的 databases 目录（避免和非序列化版本混用）</span></span><br><span class="line">        suffix = <span class="string">&quot;_ser_tab&quot;</span> <span class="keyword">if</span> serialized <span class="keyword">else</span> <span class="string">&quot;&quot;</span></span><br><span class="line">        </span><br><span class="line">        <span class="variable language_">self</span>.databases_path = root_path / <span class="string">f&quot;databases<span class="subst">&#123;suffix&#125;</span>&quot;</span></span><br><span class="line">        <span class="comment"># 有序列化表格时：databases_ser_tab/</span></span><br><span class="line">        <span class="comment"># 没有时：       databases/</span></span><br><span class="line">        </span><br><span class="line">        <span class="variable language_">self</span>.answers_file_path = root_path / <span class="string">f&quot;answers<span class="subst">&#123;config_suffix&#125;</span>.json&quot;</span></span><br><span class="line">        <span class="comment"># 对应 config_suffix=&quot;_max_nst_o3m&quot; 时：answers_max_nst_o3m.json</span></span><br></pre></td></tr></table></figure>
+
+<p>序列化表格版本的数据（Chunk 里包含 LLM 序列化的表格描述）和普通版本的数据存在不同目录，因为两者的 Chunk 内容不同，向量索引也不同，不能混用。<code>_ser_tab</code> 后缀让两套数据完全隔离。</p>
+<hr>
+<h2 id="6-目录结构设计：为什么要分这么多层？"><a href="#6-目录结构设计：为什么要分这么多层？" class="headerlink" title="6. 目录结构设计：为什么要分这么多层？"></a>6. 目录结构设计：为什么要分这么多层？</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">data/test_set/</span><br><span class="line">├── pdf_reports/               ← 原始 PDF（输入，只读）</span><br><span class="line">├── subset.csv                 ← 文档元信息（sha1 ↔ 公司名映射）</span><br><span class="line">├── questions.json             ← 问题列表</span><br><span class="line">│</span><br><span class="line">├── debug_data/                ← 中间产物（用于调试，体积大）</span><br><span class="line">│   ├── 01_parsed_reports/         Docling 解析后的结构化 JSON</span><br><span class="line">│   ├── 01_parsed_reports_debug/   Docling 的原始输出（包含所有元数据，极大）</span><br><span class="line">│   ├── 02_merged_reports/         清洗格式化后的页面文本</span><br><span class="line">│   └── 03_reports_markdown/       导出为 Markdown 的可读版本</span><br><span class="line">│</span><br><span class="line">├── databases/                 ← 索引数据（用于检索，频繁读取）</span><br><span class="line">│   ├── chunked_reports/           带 Chunk 的 JSON 文档</span><br><span class="line">│   ├── vector_dbs/                FAISS 向量索引（.faiss）</span><br><span class="line">│   └── bm25_dbs/                  BM25 稀疏索引（.pkl）</span><br><span class="line">│</span><br><span class="line">└── answers_max_nst_o3m.json   ← 最终答案（输出）</span><br><span class="line">    answers_max_nst_o3m_debug.json</span><br></pre></td></tr></table></figure>
+
+<p><strong><code>debug_data</code> 和 <code>databases</code> 分开的原因</strong>：</p>
+<ul>
+<li><code>debug_data</code> 存的是中间产物，体积很大（Docling 的原始输出一个文档可能有几 MB），只在调试时才需要，生产环境可以不保留</li>
+<li><code>databases</code> 存的是检索索引，每次问答都要读取，放在独立目录便于单独打包分发（竞赛里就是这样做的：<code>databases.zip</code> 单独下载，不需要重新处理 PDF）</li>
+</ul>
+<p><strong>为什么要保留 <code>01_parsed_reports</code> 到 <code>03_reports_markdown</code> 这几个中间目录？</strong></p>
+<p>每一层中间产物都可以作为重新处理的起点，不需要从头跑：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">如果只是想调整切块参数：</span><br><span class="line">  跳过解析（步骤1-3），直接从 02_merged_reports 重新切块（步骤4）</span><br><span class="line"></span><br><span class="line">如果只是想换一个 Embedding 模型：</span><br><span class="line">  跳过所有解析，直接从 03_chunked_reports 重新向量化</span><br><span class="line"></span><br><span class="line">如果只是想测试不同的检索配置：</span><br><span class="line">  跳过所有预处理，直接从 databases 开始问答</span><br></pre></td></tr></table></figure>
+
+<p>这让整个流水线的每个阶段都可以独立重跑，大大缩短了实验迭代周期。</p>
+<hr>
+<h2 id="7-debug-文件与引用系统"><a href="#7-debug-文件与引用系统" class="headerlink" title="7. debug 文件与引用系统"></a>7. debug 文件与引用系统</h2><h3 id="7-1-两个输出文件的分工"><a href="#7-1-两个输出文件的分工" class="headerlink" title="7.1 两个输出文件的分工"></a>7.1 两个输出文件的分工</h3><p>每次运行问答，都会同时生成两个文件：</p>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>内容</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>answers_xxx.json</code></td>
+<td>精简版答案（value + references）</td>
+<td>对外提交、接口返回</td>
+</tr>
+<tr>
+<td><code>answers_xxx_debug.json</code></td>
+<td>完整版（包含推理过程、Token 统计）</td>
+<td>调试、定位错误</td>
+</tr>
+</tbody></table>
+<h3 id="7-2-ref-引用系统：避免数据冗余"><a href="#7-2-ref-引用系统：避免数据冗余" class="headerlink" title="7.2 $ref 引用系统：避免数据冗余"></a>7.2 <code>$ref</code> 引用系统：避免数据冗余</h3><p>debug 文件里，<code>questions</code> 数组里的每个问题不直接嵌入完整的推理过程，而是通过 <code>$ref</code> 引用：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// answers_debug.json</span></span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;questions&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">    <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;question_text&quot;</span><span class="punctuation">:</span> <span class="string">&quot;What is the operating margin?&quot;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;value&quot;</span><span class="punctuation">:</span> <span class="number">9.9</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;answer_details&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;$ref&quot;</span><span class="punctuation">:</span> <span class="string">&quot;#/answer_details/1&quot;</span>   <span class="comment">// ← 引用，不是嵌入</span></span><br><span class="line">      <span class="punctuation">&#125;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;answer_details&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">    <span class="literal"><span class="keyword">null</span></span><span class="punctuation">,</span></span><br><span class="line">    <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;step_by_step_analysis&quot;</span><span class="punctuation">:</span> <span class="string">&quot;...(很长的推理过程)...&quot;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;reasoning_summary&quot;</span><span class="punctuation">:</span> <span class="string">&quot;...&quot;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;relevant_pages&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="number">45</span><span class="punctuation">,</span> <span class="number">44</span><span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;response_data&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;model&quot;</span><span class="punctuation">:</span> <span class="string">&quot;o3-mini-2025-01-31&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;input_tokens&quot;</span><span class="punctuation">:</span> <span class="number">7168</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;output_tokens&quot;</span><span class="punctuation">:</span> <span class="number">1516</span></span><br><span class="line">      <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;self&quot;</span><span class="punctuation">:</span> <span class="string">&quot;#/answer_details/1&quot;</span>    <span class="comment">// ← 自引用，方便定位</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">]</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong><code>$ref</code> 的好处</strong>：<code>answer_details</code> 里的推理过程很长（几百词），如果在 <code>questions</code> 里直接嵌入，当你想按 <code>question_text</code> 快速浏览所有问题和答案时，长篇推理过程会干扰阅读。分离存储后，<code>questions</code> 数组轻量可读，需要看推理细节时再通过 <code>$ref</code> 跳转。</p>
+<h3 id="7-3-response-data：成本追踪"><a href="#7-3-response-data：成本追踪" class="headerlink" title="7.3 response_data：成本追踪"></a>7.3 <code>response_data</code>：成本追踪</h3><p>每个 <code>answer_details</code> 里都记录了 Token 消耗：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">&quot;response_data&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;model&quot;</span><span class="punctuation">:</span> <span class="string">&quot;o3-mini-2025-01-31&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;input_tokens&quot;</span><span class="punctuation">:</span> <span class="number">7168</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;output_tokens&quot;</span><span class="punctuation">:</span> <span class="number">1516</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>这让你能精确计算每道题的 API 成本，以及不同配置的总成本差异。比如：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 从 debug 文件计算总成本</span></span><br><span class="line"><span class="keyword">with</span> <span class="built_in">open</span>(<span class="string">&quot;answers_max_nst_o3m_debug.json&quot;</span>) <span class="keyword">as</span> f:</span><br><span class="line">    debug = json.load(f)</span><br><span class="line"></span><br><span class="line">total_input = <span class="built_in">sum</span>(d[<span class="string">&quot;response_data&quot;</span>][<span class="string">&quot;input_tokens&quot;</span>] </span><br><span class="line">                  <span class="keyword">for</span> d <span class="keyword">in</span> debug[<span class="string">&quot;answer_details&quot;</span>] <span class="keyword">if</span> d <span class="keyword">and</span> <span class="string">&quot;response_data&quot;</span> <span class="keyword">in</span> d)</span><br><span class="line">total_output = <span class="built_in">sum</span>(d[<span class="string">&quot;response_data&quot;</span>][<span class="string">&quot;output_tokens&quot;</span>]</span><br><span class="line">                   <span class="keyword">for</span> d <span class="keyword">in</span> debug[<span class="string">&quot;answer_details&quot;</span>] <span class="keyword">if</span> d <span class="keyword">and</span> <span class="string">&quot;response_data&quot;</span> <span class="keyword">in</span> d)</span><br><span class="line"></span><br><span class="line"><span class="comment"># o3-mini 定价（示例）</span></span><br><span class="line">cost = total_input * <span class="number">1.1</span>/<span class="number">1e6</span> + total_output * <span class="number">4.4</span>/<span class="number">1e6</span></span><br><span class="line"><span class="built_in">print</span>(<span class="string">f&quot;总成本估算：$<span class="subst">&#123;cost:<span class="number">.4</span>f&#125;</span>&quot;</span>)</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="8-常见错误与踩坑指南"><a href="#8-常见错误与踩坑指南" class="headerlink" title="8. 常见错误与踩坑指南"></a>8. 常见错误与踩坑指南</h2><h3 id="坑-1：并发数设太高触发-Rate-Limit"><a href="#坑-1：并发数设太高触发-Rate-Limit" class="headerlink" title="坑 1：并发数设太高触发 Rate Limit"></a>坑 1：并发数设太高触发 Rate Limit</h3><p><code>parallel_requests=10</code> 意味着同时有 10 个 LLM 调用在进行（每个问题至少调用 1 次 LLM）。如果开启了 LLM 重排（每题额外调用 14 次），实际并发 LLM 调用可能是 10 × 15 &#x3D; 150 次&#x2F;分钟。</p>
+<p>各模型的 RPM 限制不同，需要根据自己的 API Tier 调整：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 保守配置（Tier 1 用户）</span></span><br><span class="line">RunConfig(parallel_requests=<span class="number">3</span>, llm_reranking_sample_size=<span class="number">10</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 激进配置（Tier 4+ 用户）</span></span><br><span class="line">RunConfig(parallel_requests=<span class="number">25</span>, llm_reranking_sample_size=<span class="number">30</span>)</span><br></pre></td></tr></table></figure>
+
+<p><strong>判断是否触发限速的信号</strong>：日志里出现大量 429 错误，或者进度条速度突然变慢（重试等待中）。</p>
+<h3 id="坑-2：debug-文件体积会超出预期"><a href="#坑-2：debug-文件体积会超出预期" class="headerlink" title="坑 2：debug 文件体积会超出预期"></a>坑 2：debug 文件体积会超出预期</h3><p>每道题的 <code>step_by_step_analysis</code> 平均 150-300 词，加上推理摘要、Token 统计，每道题的 debug 数据约 1-3 KB。处理 1000 道题，debug 文件可能达到 1-3 MB——听起来不大，但加上 <code>answer_details</code> 里的完整推理，实际往往超过 10 MB。</p>
+<p>如果 debug 文件太大导致难以用文本编辑器打开，可以用 Python 的 <code>json</code> 模块直接读取：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> json</span><br><span class="line"><span class="keyword">with</span> <span class="built_in">open</span>(<span class="string">&quot;answers_debug.json&quot;</span>) <span class="keyword">as</span> f:</span><br><span class="line">    debug = json.load(f)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 只看统计信息</span></span><br><span class="line"><span class="built_in">print</span>(debug[<span class="string">&quot;statistics&quot;</span>])</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看第 N 道题的推理过程</span></span><br><span class="line">q = debug[<span class="string">&quot;questions&quot;</span>][N]</span><br><span class="line">ref_index = <span class="built_in">int</span>(q[<span class="string">&quot;answer_details&quot;</span>][<span class="string">&quot;$ref&quot;</span>].split(<span class="string">&quot;/&quot;</span>)[-<span class="number">1</span>])</span><br><span class="line"><span class="built_in">print</span>(debug[<span class="string">&quot;answer_details&quot;</span>][ref_index][<span class="string">&quot;step_by_step_analysis&quot;</span>])</span><br></pre></td></tr></table></figure>
+
+<h3 id="坑-3：executor-map-会吞掉子线程里的异常"><a href="#坑-3：executor-map-会吞掉子线程里的异常" class="headerlink" title="坑 3：executor.map 会吞掉子线程里的异常"></a>坑 3：<code>executor.map</code> 会吞掉子线程里的异常</h3><p><code>executor.map</code> 在迭代结果时才抛出异常，不是在提交任务时：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># ❌ 这样写看不到异常，直到取结果时才报错</span></span><br><span class="line">batch_results = <span class="built_in">list</span>(executor.<span class="built_in">map</span>(<span class="variable language_">self</span>._process_single_question, batch))</span><br><span class="line"><span class="comment"># 如果某个线程抛了异常，list() 才会重新抛出</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># ✅ 项目里的正确处理方式：在 _process_single_question 内部 try/except</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">_process_single_question</span>(<span class="params">self, question_data</span>):</span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        ...</span><br><span class="line">    <span class="keyword">except</span> Exception <span class="keyword">as</span> err:</span><br><span class="line">        <span class="keyword">return</span> <span class="variable language_">self</span>._handle_processing_error(...)  <span class="comment"># 返回错误字典而非抛异常</span></span><br></pre></td></tr></table></figure>
+
+<p><code>_process_single_question</code> 内部把所有异常都 catch 住，返回包含 <code>&quot;error&quot;</code> 字段的字典，而不是让异常向上传播。这样即使某道题处理失败，整个批次依然能正常完成，不会因为一道题崩溃而中断全部处理。</p>
+<h3 id="坑-4：修改了-Chunk-内容后忘记重建索引"><a href="#坑-4：修改了-Chunk-内容后忘记重建索引" class="headerlink" title="坑 4：修改了 Chunk 内容后忘记重建索引"></a>坑 4：修改了 Chunk 内容后忘记重建索引</h3><p>如果你修改了切块参数（比如把 chunk_size 从 300 改到 400），需要：</p>
+<ol>
+<li>重新运行 <code>pipeline.chunk_reports()</code></li>
+<li>重新运行 <code>pipeline.create_vector_dbs()</code>（向量必须和当前 Chunk 内容对应）</li>
+<li>重新运行 <code>pipeline.create_bm25_db()</code></li>
+</ol>
+<p>只做第一步而跳过第 2、3 步，FAISS 索引里的向量数量会和 Chunk 数量不匹配，检索时会出现下标越界或结果错位。</p>
+<hr>
+<h2 id="9-系列总结：完整-RAG-流水线一览"><a href="#9-系列总结：完整-RAG-流水线一览" class="headerlink" title="9. 系列总结：完整 RAG 流水线一览"></a>9. 系列总结：完整 RAG 流水线一览</h2><p>至此，这个系列覆盖了 RAG 系统从零到生产就绪的全部核心环节。下面是五篇文章对应的完整流水线：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────────────────────┐</span><br><span class="line">│                    离线预处理阶段（一次性）                        │</span><br><span class="line">├─────────────────────────────────────────────────────────────────┤</span><br><span class="line">│                                                                 │</span><br><span class="line">│  原始 PDF                                                        │</span><br><span class="line">│    │                                                            │</span><br><span class="line">│    ▼  [第一篇] 文档解析与切块                                     │</span><br><span class="line">│  Docling 解析（版式分析 + TableFormer + OCR）                     │</span><br><span class="line">│    → 表格 LLM 序列化（可选）                                      │</span><br><span class="line">│    → Markdown 格式化 + OCR 噪声清洗                               │</span><br><span class="line">│    → 按 Token 切块（300 tokens，按页独立切）                       │</span><br><span class="line">│    → debug_data/chunked_reports/*.json                          │</span><br><span class="line">│                                                                 │</span><br><span class="line">│    ▼  [第二篇] 向量化与索引构建                                   │</span><br><span class="line">│  text-embedding-3-large → FAISS IndexFlatIP                     │</span><br><span class="line">│    → databases/vector_dbs/*.faiss                               │</span><br><span class="line">│  空格分词 → BM25Okapi → pickle                                   │</span><br><span class="line">│    → databases/bm25_dbs/*.pkl                                   │</span><br><span class="line">│                                                                 │</span><br><span class="line">└─────────────────────────────────────────────────────────────────┘</span><br><span class="line"></span><br><span class="line">┌─────────────────────────────────────────────────────────────────┐</span><br><span class="line">│                    在线查询阶段（每次提问）                        │</span><br><span class="line">├─────────────────────────────────────────────────────────────────┤</span><br><span class="line">│                                                                 │</span><br><span class="line">│  用户问题 + 公司名                                               │</span><br><span class="line">│    │                                                            │</span><br><span class="line">│    ▼  [第三篇] 检索与重排                                         │</span><br><span class="line">│  查询向量化 → FAISS 召回 Top-30                                   │</span><br><span class="line">│    → LLM 重排（14 批并行评分）→ 加权融合                          │</span><br><span class="line">│    → Top-10 最相关 Chunk 或整页                                   │</span><br><span class="line">│    → 格式化为带页码标注的 RAG Context                             │</span><br><span class="line">│                                                                 │</span><br><span class="line">│    ▼  [第四篇] 问答生成                                           │</span><br><span class="line">│  按题型路由（number/boolean/name/names/comparative）              │</span><br><span class="line">│    → Chain-of-Thought 结构化输出（推理先于答案）                   │</span><br><span class="line">│    → 页码幻觉验证                                                 │</span><br><span class="line">│    → 最终答案 + 引用页码                                          │</span><br><span class="line">│                                                                 │</span><br><span class="line">│    ▼  [第五篇] 工程化                                             │</span><br><span class="line">│  10 题并行（ThreadPoolExecutor）                                  │</span><br><span class="line">│    → 每批完成实时持久化                                            │</span><br><span class="line">│    → debug 文件记录完整推理 + Token 成本                          │</span><br><span class="line">│                                                                 │</span><br><span class="line">└─────────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<h3 id="关键技术决策回顾"><a href="#关键技术决策回顾" class="headerlink" title="关键技术决策回顾"></a>关键技术决策回顾</h3><table>
+<thead>
+<tr>
+<th>环节</th>
+<th>关键决策</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>PDF 解析</td>
+<td>Docling（模型驱动）而非 PyPDF2</td>
+<td>理解版式、正确处理多列和表格</td>
+</tr>
+<tr>
+<td>切块策略</td>
+<td>按页独立切、Token 计数、Markdown 格式</td>
+<td>保留页码溯源、多语言一致性、优化切割点</td>
+</tr>
+<tr>
+<td>索引结构</td>
+<td>每文档单独 FAISS + BM25 双路</td>
+<td>天然支持按公司过滤；互补覆盖语义和关键词</td>
+</tr>
+<tr>
+<td>检索增强</td>
+<td>Parent Document Retrieval</td>
+<td>小 Chunk 定位精准 + 整页上下文完整</td>
+</tr>
+<tr>
+<td>精排</td>
+<td>LLM Reranking（而非 Cross-Encoder）</td>
+<td>无需训练，利用 LLM 的语言理解能力</td>
+</tr>
+<tr>
+<td>输出约束</td>
+<td>Pydantic Structured Output</td>
+<td>彻底消除 JSON 解析失败，推理字段前置触发 CoT</td>
+</tr>
+<tr>
+<td>并发模型</td>
+<td>多线程问答 + 异步限速 API 调用</td>
+<td>两种场景的最优匹配</td>
+</tr>
+<tr>
+<td>实验管理</td>
+<td>RunConfig 预设 + config_suffix 区分文件</td>
+<td>多套配置互不干扰，A&#x2F;B 对比简单</td>
+</tr>
+</tbody></table>
+<hr>
+<p><em>本文基于 RAG-Challenge-2 项目的工程实践总结，参考代码见 <code>src/questions_processing.py</code>、<code>src/api_request_parallel_processor.py</code>、<code>src/pipeline.py</code>。</em></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer"><script src="https://giscus.app/client.js"
+        data-repo="2023Andrewyang/2023Andrewyang.github.io"
+        data-repo-id="R_kgDORLUYLQ"
+        data-category="General"
+        data-category-id="DIC_kwDORLUYLc4C2JUx"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="preferred_color_scheme"
+        data-lang="zh-CN"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+
+
+          <div class="post-tags">
+              <a href="/tags/RAG/" rel="tag"># RAG</a>
+              <a href="/tags/LLM/" rel="tag"># LLM</a>
+              <a href="/tags/AI/" rel="tag"># AI</a>
+              <a href="/tags/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" rel="tag"># 学习笔记</a>
+              <a href="/tags/Python/" rel="tag"># Python</a>
+              <a href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/" rel="tag"># 并发编程</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2026/03/18/RAG%E5%AE%9E%E6%88%98%EF%BC%88%E5%9B%9B%EF%BC%89-%E9%97%AE%E7%AD%94%E7%94%9F%E6%88%90/" rel="prev" title="RAG实战（四）-问答生成">
+                  <i class="fa fa-angle-left"></i> RAG实战（四）-问答生成
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">Andrew Yang</span>
+  </div>
+<div class="wordcount">
+  <span class="post-meta-item">
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-line"></i>
+    </span>
+    <span title="站点总字数">60k</span>
+  </span>
+  <span class="post-meta-item">
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">3:37</span>
+  </span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+</body>
+</html>

@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" integrity="sha256-VHqXKFhhMxcpubYf9xiWdCiojEbY9NexQ4jh8AxbvcM=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"2023andrewyang.github.io","root":"/","images":"/images","scheme":"Gemini","darkmode":true,"version":"8.27.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12},"hljswrap":true,"codeblock":{"theme":{"light":"default","dark":"stackoverflow-dark"},"prism":{"light":"prism","dark":"prism-dark"},"copy_button":{"enable":true,"style":"mac"},"fold":{"enable":false,"height":500},"language":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"duration":200,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js" defer></script>
+
+    <meta name="description" content="本文是 RAG 实战系列第三篇，承接第二篇的向量化与索引构建。上一篇结束时，我们已经为每个文档构建好了两套索引：FAISS 向量语义索引和 BM25 关键词稀疏索引。这一篇讲的是：用户提问时，如何从这些索引里找到最相关的 Chunk，并进一步提升检索质量。  本系列基于开源项目 IlyaRice&#x2F;RAG-Challenge-2 的工程实践总结。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="RAG实战（三）-检索与重排">
+<meta property="og:url" content="https://2023andrewyang.github.io/2026/03/17/RAG%E5%AE%9E%E6%88%98%EF%BC%88%E4%B8%89%EF%BC%89-%E6%A3%80%E7%B4%A2%E4%B8%8E%E9%87%8D%E6%8E%92/index.html">
+<meta property="og:site_name" content="Andrew&#39;s Blog">
+<meta property="og:description" content="本文是 RAG 实战系列第三篇，承接第二篇的向量化与索引构建。上一篇结束时，我们已经为每个文档构建好了两套索引：FAISS 向量语义索引和 BM25 关键词稀疏索引。这一篇讲的是：用户提问时，如何从这些索引里找到最相关的 Chunk，并进一步提升检索质量。  本系列基于开源项目 IlyaRice&#x2F;RAG-Challenge-2 的工程实践总结。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-03-17T02:00:00.000Z">
+<meta property="article:modified_time" content="2026-03-14T09:42:50.000Z">
+<meta property="article:author" content="Andrew Yang">
+<meta property="article:tag" content="RAG">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="AI">
+<meta property="article:tag" content="学习笔记">
+<meta property="article:tag" content="Python">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://2023andrewyang.github.io/2026/03/17/RAG%E5%AE%9E%E6%88%98%EF%BC%88%E4%B8%89%EF%BC%89-%E6%A3%80%E7%B4%A2%E4%B8%8E%E9%87%8D%E6%8E%92/">
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://2023andrewyang.github.io/2026/03/17/RAG%E5%AE%9E%E6%88%98%EF%BC%88%E4%B8%89%EF%BC%89-%E6%A3%80%E7%B4%A2%E4%B8%8E%E9%87%8D%E6%8E%92/","path":"2026/03/17/RAG实战（三）-检索与重排/","title":"RAG实战（三）-检索与重排"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>RAG实战（三）-检索与重排 | Andrew's Blog</title>
+  
+
+
+
+
+
+
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous" defer></script>
+<script src="/js/utils.js" defer></script><script src="/js/motion.js" defer></script><script src="/js/sidebar.js" defer></script><script src="/js/next-boot.js" defer></script>
+
+  
+
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Andrew's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9B%AE%E5%BD%95"><span class="nav-number">1.</span> <span class="nav-text">目录</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E6%A3%80%E7%B4%A2%E7%9A%84%E6%95%B4%E4%BD%93%E6%80%9D%E8%B7%AF%EF%BC%9A%E4%BB%8E%E9%97%AE%E9%A2%98%E5%88%B0%E4%B8%8A%E4%B8%8B%E6%96%87"><span class="nav-number">2.</span> <span class="nav-text">1. 检索的整体思路：从问题到上下文</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E4%BB%A3%E7%A0%81%E8%AF%A6%E8%A7%A3%EF%BC%9AVectorRetriever%EF%BC%88%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%EF%BC%89"><span class="nav-number">3.</span> <span class="nav-text">2. 代码详解：VectorRetriever（向量检索）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-%E5%88%9D%E5%A7%8B%E5%8C%96%EF%BC%9A%E9%A2%84%E5%8A%A0%E8%BD%BD%E6%89%80%E6%9C%89%E7%B4%A2%E5%BC%95"><span class="nav-number">3.1.</span> <span class="nav-text">2.1 初始化：预加载所有索引</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-%E6%A0%B8%E5%BF%83%E6%A3%80%E7%B4%A2%E9%80%BB%E8%BE%91"><span class="nav-number">3.2.</span> <span class="nav-text">2.2 核心检索逻辑</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-%E9%9D%99%E6%80%81%E5%B7%A5%E5%85%B7%E6%96%B9%E6%B3%95%EF%BC%9A%E8%AE%A1%E7%AE%97%E4%BB%BB%E6%84%8F%E4%B8%A4%E6%AE%B5%E6%96%87%E5%AD%97%E7%9A%84%E7%9B%B8%E4%BC%BC%E5%BA%A6"><span class="nav-number">3.3.</span> <span class="nav-text">2.3 静态工具方法：计算任意两段文字的相似度</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-%E4%BB%A3%E7%A0%81%E8%AF%A6%E8%A7%A3%EF%BC%9ABM25Retriever%EF%BC%88%E5%85%B3%E9%94%AE%E8%AF%8D%E6%A3%80%E7%B4%A2%EF%BC%89"><span class="nav-number">4.</span> <span class="nav-text">3. 代码详解：BM25Retriever（关键词检索）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-Parent-Document-Retrieval%EF%BC%9A%E4%B8%80%E4%B8%AA%E9%87%8D%E8%A6%81%E7%9A%84%E5%B7%A5%E7%A8%8B%E6%8A%80%E5%B7%A7"><span class="nav-number">5.</span> <span class="nav-text">4. Parent Document Retrieval：一个重要的工程技巧</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-%E9%97%AE%E9%A2%98%E8%83%8C%E6%99%AF"><span class="nav-number">5.1.</span> <span class="nav-text">4.1 问题背景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88%EF%BC%9A%E6%A3%80%E7%B4%A2-Chunk%EF%BC%8C%E8%BF%94%E5%9B%9E%E6%95%B4%E9%A1%B5"><span class="nav-number">5.2.</span> <span class="nav-text">4.2 解决方案：检索 Chunk，返回整页</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-%E4%BB%A3%E4%BB%B7%E4%B8%8E%E6%9D%83%E8%A1%A1"><span class="nav-number">5.3.</span> <span class="nav-text">4.3 代价与权衡</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-LLM-%E9%87%8D%E6%8E%92%EF%BC%9A%E8%AE%A9-LLM-%E6%9B%BF%E4%BD%A0%E5%88%A4%E6%96%AD%E5%93%AA%E6%9D%A1%E7%BB%93%E6%9E%9C%E6%9B%B4%E7%9B%B8%E5%85%B3"><span class="nav-number">6.</span> <span class="nav-text">5. LLM 重排：让 LLM 替你判断哪条结果更相关</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E7%9A%84%E5%A4%A9%E8%8A%B1%E6%9D%BF"><span class="nav-number">6.1.</span> <span class="nav-text">5.1 向量检索的天花板</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-%E9%87%8D%E6%8E%92%E7%9A%84%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B"><span class="nav-number">6.2.</span> <span class="nav-text">5.2 重排的整体流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-%E7%BB%93%E6%9E%84%E5%8C%96%E8%BE%93%E5%87%BA%EF%BC%9A%E7%94%A8-Pydantic-%E7%BA%A6%E6%9D%9F-LLM-%E7%9A%84%E6%89%93%E5%88%86%E6%A0%BC%E5%BC%8F"><span class="nav-number">6.3.</span> <span class="nav-text">5.3 结构化输出：用 Pydantic 约束 LLM 的打分格式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-4-%E9%87%8D%E6%8E%92%E7%9A%84-Prompt-%E8%AE%BE%E8%AE%A1"><span class="nav-number">6.4.</span> <span class="nav-text">5.4 重排的 Prompt 设计</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-5-%E5%B9%B6%E8%A1%8C%E6%89%B9%E5%A4%84%E7%90%86%EF%BC%9A%E5%8A%A0%E9%80%9F%E9%87%8D%E6%8E%92"><span class="nav-number">6.5.</span> <span class="nav-text">5.5 并行批处理：加速重排</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-6-%E5%8A%A0%E6%9D%83%E5%88%86%E6%95%B0%E7%9A%84%E5%90%AB%E4%B9%89"><span class="nav-number">6.6.</span> <span class="nav-text">5.6 加权分数的含义</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-HybridRetriever%EF%BC%9A%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2-LLM-%E9%87%8D%E6%8E%92%E7%9A%84%E7%BB%84%E5%90%88"><span class="nav-number">7.</span> <span class="nav-text">6. HybridRetriever：向量检索 + LLM 重排的组合</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-%E6%A3%80%E7%B4%A2%E7%BB%93%E6%9E%9C%E5%A6%82%E4%BD%95%E5%8F%98%E6%88%90-LLM-%E7%9A%84%E8%BE%93%E5%85%A5"><span class="nav-number">8.</span> <span class="nav-text">7. 检索结果如何变成 LLM 的输入</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#8-%E9%85%8D%E7%BD%AE%E5%8F%82%E6%95%B0%E7%9A%84%E6%9D%83%E8%A1%A1%EF%BC%9Atop-n%E3%80%81sample-size-%E8%AF%A5%E6%80%8E%E4%B9%88%E8%AE%BE%EF%BC%9F"><span class="nav-number">9.</span> <span class="nav-text">8. 配置参数的权衡：top_n、sample_size 该怎么设？</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#8-1-top-n-retrieval%EF%BC%9A%E6%9C%80%E7%BB%88%E8%BF%94%E5%9B%9E%E7%9A%84-Chunk-%E6%95%B0"><span class="nav-number">9.1.</span> <span class="nav-text">8.1 top_n_retrieval：最终返回的 Chunk 数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-2-llm-reranking-sample-size%EF%BC%9ALLM-%E9%87%8D%E6%8E%92%E5%89%8D%E7%9A%84%E5%90%91%E9%87%8F%E5%8F%AC%E5%9B%9E%E6%95%B0"><span class="nav-number">9.2.</span> <span class="nav-text">8.2 llm_reranking_sample_size：LLM 重排前的向量召回数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-3-documents-batch-size%EF%BC%9A%E6%AF%8F%E6%AC%A1-LLM-%E8%B0%83%E7%94%A8%E8%AF%84%E5%88%86%E7%9A%84-Chunk-%E6%95%B0"><span class="nav-number">9.3.</span> <span class="nav-text">8.3 documents_batch_size：每次 LLM 调用评分的 Chunk 数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-4-%E4%B8%8D%E5%90%8C%E7%AD%96%E7%95%A5%E7%9A%84%E6%80%A7%E8%83%BD%E5%AF%B9%E6%AF%94%EF%BC%88%E5%8F%82%E8%80%83%EF%BC%89"><span class="nav-number">9.4.</span> <span class="nav-text">8.4 不同策略的性能对比（参考）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-%E5%B8%B8%E8%A7%81%E9%94%99%E8%AF%AF%E4%B8%8E%E8%B8%A9%E5%9D%91%E6%8C%87%E5%8D%97"><span class="nav-number">10.</span> <span class="nav-text">9. 常见错误与踩坑指南</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9D%91-1%EF%BC%9A%E6%9F%A5%E8%AF%A2%E5%92%8C%E7%B4%A2%E5%BC%95%E7%94%A8%E4%BA%86%E4%B8%8D%E5%90%8C%E7%9A%84-Embedding-%E6%A8%A1%E5%9E%8B"><span class="nav-number">10.1.</span> <span class="nav-text">坑 1：查询和索引用了不同的 Embedding 模型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9D%91-2%EF%BC%9Areturn-parent-pages-True-%E6%97%B6-top-n-%E9%9C%80%E8%A6%81%E7%9B%B8%E5%BA%94%E8%B0%83%E6%95%B4"><span class="nav-number">10.2.</span> <span class="nav-text">坑 2：return_parent_pages&#x3D;True 时 top_n 需要相应调整</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9D%91-3%EF%BC%9ABM25-%E5%88%86%E6%95%B0%E5%92%8C%E5%90%91%E9%87%8F%E5%88%86%E6%95%B0%E4%B8%8D%E8%83%BD%E7%9B%B4%E6%8E%A5%E5%8A%A0%E6%9D%83"><span class="nav-number">10.3.</span> <span class="nav-text">坑 3：BM25 分数和向量分数不能直接加权</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9D%91-4%EF%BC%9ALLM-%E9%87%8D%E6%8E%92%E7%9A%84%E7%BB%93%E6%9E%9C%E6%95%B0%E9%87%8F%E5%8F%AF%E8%83%BD%E5%B0%91%E4%BA%8E%E9%A2%84%E6%9C%9F"><span class="nav-number">10.4.</span> <span class="nav-text">坑 4：LLM 重排的结果数量可能少于预期</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9D%91-5%EF%BC%9A%E9%A2%84%E5%8A%A0%E8%BD%BD%E7%B4%A2%E5%BC%95%E6%97%B6%E5%86%85%E5%AD%98%E6%B6%88%E8%80%97"><span class="nav-number">10.5.</span> <span class="nav-text">坑 5：预加载索引时内存消耗</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#10-%E5%AE%8C%E6%95%B4%E6%A3%80%E7%B4%A2%E6%B5%81%E7%A8%8B%E4%B8%B2%E8%81%94"><span class="nav-number">11.</span> <span class="nav-text">10. 完整检索流程串联</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%BF%AB%E9%80%9F%E4%B8%8A%E6%89%8B%E4%BB%A3%E7%A0%81%EF%BC%88%E6%9C%80%E5%B0%8F%E5%8F%AF%E8%BF%90%E8%A1%8C%E7%A4%BA%E4%BE%8B%EF%BC%89"><span class="nav-number">11.1.</span> <span class="nav-text">快速上手代码（最小可运行示例）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">12.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Andrew Yang"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Andrew Yang</p>
+  <div class="site-description" itemprop="description">记录技术、生活与学习</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://2023andrewyang.github.io/2026/03/17/RAG%E5%AE%9E%E6%88%98%EF%BC%88%E4%B8%89%EF%BC%89-%E6%A3%80%E7%B4%A2%E4%B8%8E%E9%87%8D%E6%8E%92/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Andrew Yang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Andrew's Blog">
+      <meta itemprop="description" content="记录技术、生活与学习">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="RAG实战（三）-检索与重排 | Andrew's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          RAG实战（三）-检索与重排
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2026-03-17 10:00:00" itemprop="dateCreated datePublished" datetime="2026-03-17T10:00:00+08:00">2026-03-17</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2026-03-14 17:42:50" itemprop="dateModified" datetime="2026-03-14T17:42:50+08:00">2026-03-14</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%8A%80%E6%9C%AF%E6%96%87%E7%AB%A0/" itemprop="url" rel="index"><span itemprop="name">技术文章</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+    <span class="post-meta-break"></span>
+    <span class="post-meta-item" title="本文字数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-file-word"></i>
+      </span>
+      <span class="post-meta-item-text">本文字数：</span>
+      <span>5.6k</span>
+    </span>
+    <span class="post-meta-item" title="阅读时长">
+      <span class="post-meta-item-icon">
+        <i class="far fa-clock"></i>
+      </span>
+      <span class="post-meta-item-text">阅读时长 &asymp;</span>
+      <span>20 分钟</span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>本文是 RAG 实战系列第三篇，承接第二篇的向量化与索引构建。上一篇结束时，我们已经为每个文档构建好了两套索引：FAISS 向量语义索引和 BM25 关键词稀疏索引。这一篇讲的是：<strong>用户提问时，如何从这些索引里找到最相关的 Chunk，并进一步提升检索质量</strong>。</p>
+<blockquote>
+<p>本系列基于开源项目 <a target="_blank" rel="noopener" href="https://github.com/IlyaRice/RAG-Challenge-2">IlyaRice&#x2F;RAG-Challenge-2</a> 的工程实践总结。</p>
+</blockquote>
+<hr>
+<span id="more"></span>
+
+<h2 id="目录"><a href="#目录" class="headerlink" title="目录"></a>目录</h2><ol>
+<li><a href="#1-%E6%A3%80%E7%B4%A2%E7%9A%84%E6%95%B4%E4%BD%93%E6%80%9D%E8%B7%AF%E4%BB%8E%E9%97%AE%E9%A2%98%E5%88%B0%E4%B8%8A%E4%B8%8B%E6%96%87">检索的整体思路：从问题到上下文</a></li>
+<li><a href="#2-%E4%BB%A3%E7%A0%81%E8%AF%A6%E8%A7%A3vectorretriever%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2">代码详解：VectorRetriever（向量检索）</a></li>
+<li><a href="#3-%E4%BB%A3%E7%A0%81%E8%AF%A6%E8%A7%A3bm25retriever%E5%85%B3%E9%94%AE%E8%AF%8D%E6%A3%80%E7%B4%A2">代码详解：BM25Retriever（关键词检索）</a></li>
+<li><a href="#4-parent-document-retrieval%E4%B8%80%E4%B8%AA%E9%87%8D%E8%A6%81%E7%9A%84%E5%B7%A5%E7%A8%8B%E6%8A%80%E5%B7%A7">Parent Document Retrieval：一个重要的工程技巧</a></li>
+<li><a href="#5-llm-%E9%87%8D%E6%8E%92%E8%AE%A9-llm-%E6%9B%BF%E4%BD%A0%E5%88%A4%E6%96%AD%E5%93%AA%E6%9D%A1%E7%BB%93%E6%9E%9C%E6%9B%B4%E7%9B%B8%E5%85%B3">LLM 重排：让 LLM 替你判断哪条结果更相关</a></li>
+<li><a href="#6-hybridretriever%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2--llm-%E9%87%8D%E6%8E%92%E7%9A%84%E7%BB%84%E5%90%88">HybridRetriever：向量检索 + LLM 重排的组合</a></li>
+<li><a href="#7-%E6%A3%80%E7%B4%A2%E7%BB%93%E6%9E%9C%E5%A6%82%E4%BD%95%E5%8F%98%E6%88%90-llm-%E7%9A%84%E8%BE%93%E5%85%A5">检索结果如何变成 LLM 的输入</a></li>
+<li><a href="#8-%E9%85%8D%E7%BD%AE%E5%8F%82%E6%95%B0%E7%9A%84%E6%9D%83%E8%A1%A1top_nsample_size-%E8%AF%A5%E6%80%8E%E4%B9%88%E8%AE%BE">配置参数的权衡：top_n、sample_size 该怎么设？</a></li>
+<li><a href="#9-%E5%B8%B8%E8%A7%81%E9%94%99%E8%AF%AF%E4%B8%8E%E8%B8%A9%E5%9D%91%E6%8C%87%E5%8D%97">常见错误与踩坑指南</a></li>
+<li><a href="#10-%E5%AE%8C%E6%95%B4%E6%A3%80%E7%B4%A2%E6%B5%81%E7%A8%8B%E4%B8%B2%E8%81%94">完整检索流程串联</a></li>
+</ol>
+<hr>
+<h2 id="1-检索的整体思路：从问题到上下文"><a href="#1-检索的整体思路：从问题到上下文" class="headerlink" title="1. 检索的整体思路：从问题到上下文"></a>1. 检索的整体思路：从问题到上下文</h2><p>检索阶段的任务很直白：<strong>给定用户的问题，从已建好的索引里找出最相关的若干 Chunk，拼成一段上下文（Context），交给 LLM 回答</strong>。</p>
+<p>但”最相关”的定义并不简单。本项目提供了三种检索策略，复杂度依次递增：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">策略一：纯向量检索（VectorRetriever）</span><br><span class="line">  查询 → Embedding → FAISS 搜索 → Top-N Chunk</span><br><span class="line"></span><br><span class="line">策略二：纯 BM25 检索（BM25Retriever）</span><br><span class="line">  查询 → 分词 → BM25 打分 → Top-N Chunk</span><br><span class="line"></span><br><span class="line">策略三：混合检索 + LLM 重排（HybridRetriever）</span><br><span class="line">  查询 → Embedding → FAISS 搜索 → 召回 K 个候选</span><br><span class="line">       → LLM 逐批打分 → 加权排序 → Top-N Chunk</span><br></pre></td></tr></table></figure>
+
+<p><strong>策略一</strong>适合大多数场景，速度快，语义理解好；<br><strong>策略二</strong>在关键词精确匹配场景（如具体数字、日期）表现更稳；<br><strong>策略三</strong>是最精准但最慢的方案，适合对质量要求极高的生产系统。</p>
+<p>本项目在最终提交中主要使用策略三。接下来逐一拆解。</p>
+<hr>
+<h2 id="2-代码详解：VectorRetriever（向量检索）"><a href="#2-代码详解：VectorRetriever（向量检索）" class="headerlink" title="2. 代码详解：VectorRetriever（向量检索）"></a>2. 代码详解：VectorRetriever（向量检索）</h2><p>核心代码位于 <code>src/retrieval.py</code>。</p>
+<h3 id="2-1-初始化：预加载所有索引"><a href="#2-1-初始化：预加载所有索引" class="headerlink" title="2.1 初始化：预加载所有索引"></a>2.1 初始化：预加载所有索引</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">VectorRetriever</span>:</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, vector_db_dir: Path, documents_dir: Path</span>):</span><br><span class="line">        <span class="variable language_">self</span>.vector_db_dir = vector_db_dir</span><br><span class="line">        <span class="variable language_">self</span>.documents_dir = documents_dir</span><br><span class="line">        <span class="variable language_">self</span>.all_dbs = <span class="variable language_">self</span>._load_dbs()   <span class="comment"># 启动时加载所有文档和索引</span></span><br><span class="line">        <span class="variable language_">self</span>.llm = <span class="variable language_">self</span>._set_up_llm()</span><br></pre></td></tr></table></figure>
+
+<p><code>_load_dbs()</code> 在对象初始化时就把<strong>所有文档的 FAISS 索引和 JSON 数据一次性读入内存</strong>：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_load_dbs</span>(<span class="params">self</span>):</span><br><span class="line">    all_dbs = []</span><br><span class="line">    all_documents_paths = <span class="built_in">list</span>(<span class="variable language_">self</span>.documents_dir.glob(<span class="string">&#x27;*.json&#x27;</span>))</span><br><span class="line">    <span class="comment"># 构建 stem → faiss 文件路径的映射字典</span></span><br><span class="line">    vector_db_files = &#123;db_path.stem: db_path <span class="keyword">for</span> db_path <span class="keyword">in</span> <span class="variable language_">self</span>.vector_db_dir.glob(<span class="string">&#x27;*.faiss&#x27;</span>)&#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">for</span> document_path <span class="keyword">in</span> all_documents_paths:</span><br><span class="line">        stem = document_path.stem  <span class="comment"># 即 sha1_name，例如 &quot;a1b2c3d4e5&quot;</span></span><br><span class="line">        <span class="keyword">if</span> stem <span class="keyword">not</span> <span class="keyword">in</span> vector_db_files:</span><br><span class="line">            _log.warning(<span class="string">f&quot;No matching vector DB found for document <span class="subst">&#123;document_path.name&#125;</span>&quot;</span>)</span><br><span class="line">            <span class="keyword">continue</span></span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 验证文档结构完整性</span></span><br><span class="line">        <span class="keyword">with</span> <span class="built_in">open</span>(document_path, <span class="string">&#x27;r&#x27;</span>, encoding=<span class="string">&#x27;utf-8&#x27;</span>) <span class="keyword">as</span> f:</span><br><span class="line">            document = json.load(f)</span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> (<span class="built_in">isinstance</span>(document, <span class="built_in">dict</span>) <span class="keyword">and</span> <span class="string">&quot;metainfo&quot;</span> <span class="keyword">in</span> document <span class="keyword">and</span> <span class="string">&quot;content&quot;</span> <span class="keyword">in</span> document):</span><br><span class="line">            _log.warning(<span class="string">f&quot;Skipping <span class="subst">&#123;document_path.name&#125;</span>: does not match the expected schema.&quot;</span>)</span><br><span class="line">            <span class="keyword">continue</span></span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 加载 FAISS 索引</span></span><br><span class="line">        vector_db = faiss.read_index(<span class="built_in">str</span>(vector_db_files[stem]))</span><br><span class="line">        </span><br><span class="line">        all_dbs.append(&#123;</span><br><span class="line">            <span class="string">&quot;name&quot;</span>: stem,</span><br><span class="line">            <span class="string">&quot;vector_db&quot;</span>: vector_db,</span><br><span class="line">            <span class="string">&quot;document&quot;</span>: document</span><br><span class="line">        &#125;)</span><br><span class="line">    <span class="keyword">return</span> all_dbs</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么要预加载，而不是按需加载？</strong></p>
+<p>FAISS 索引从磁盘加载（<code>faiss.read_index</code>）有固定的 I&#x2F;O 开销。如果每次查询都临时加载，在并发处理大量问题时，反复的磁盘读取会成为明显的性能瓶颈。预加载虽然占用更多内存，但换来了检索时的零 I&#x2F;O 延迟。</p>
+<h3 id="2-2-核心检索逻辑"><a href="#2-2-核心检索逻辑" class="headerlink" title="2.2 核心检索逻辑"></a>2.2 核心检索逻辑</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">retrieve_by_company_name</span>(<span class="params"></span></span><br><span class="line"><span class="params">    self, </span></span><br><span class="line"><span class="params">    company_name: <span class="built_in">str</span>, </span></span><br><span class="line"><span class="params">    query: <span class="built_in">str</span>, </span></span><br><span class="line"><span class="params">    top_n: <span class="built_in">int</span> = <span class="number">3</span>, </span></span><br><span class="line"><span class="params">    return_parent_pages: <span class="built_in">bool</span> = <span class="literal">False</span></span></span><br><span class="line"><span class="params"></span>) -&gt; <span class="type">List</span>[<span class="type">Dict</span>]:</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 1. 按公司名找到目标文档</span></span><br><span class="line">    target_report = <span class="built_in">next</span>(</span><br><span class="line">        (r <span class="keyword">for</span> r <span class="keyword">in</span> <span class="variable language_">self</span>.all_dbs </span><br><span class="line">         <span class="keyword">if</span> r[<span class="string">&quot;document&quot;</span>][<span class="string">&quot;metainfo&quot;</span>][<span class="string">&quot;company_name&quot;</span>] == company_name),</span><br><span class="line">        <span class="literal">None</span></span><br><span class="line">    )</span><br><span class="line">    <span class="keyword">if</span> target_report <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">        <span class="keyword">raise</span> ValueError(<span class="string">f&quot;No report found with &#x27;<span class="subst">&#123;company_name&#125;</span>&#x27; company name.&quot;</span>)</span><br><span class="line">    </span><br><span class="line">    document = target_report[<span class="string">&quot;document&quot;</span>]</span><br><span class="line">    vector_db = target_report[<span class="string">&quot;vector_db&quot;</span>]</span><br><span class="line">    chunks = document[<span class="string">&quot;content&quot;</span>][<span class="string">&quot;chunks&quot;</span>]</span><br><span class="line">    pages = document[<span class="string">&quot;content&quot;</span>][<span class="string">&quot;pages&quot;</span>]</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 2. 将查询文本向量化</span></span><br><span class="line">    embedding = <span class="variable language_">self</span>.llm.embeddings.create(</span><br><span class="line">        <span class="built_in">input</span>=query,</span><br><span class="line">        model=<span class="string">&quot;text-embedding-3-large&quot;</span></span><br><span class="line">    )</span><br><span class="line">    embedding = embedding.data[<span class="number">0</span>].embedding</span><br><span class="line">    embedding_array = np.array(embedding, dtype=np.float32).reshape(<span class="number">1</span>, -<span class="number">1</span>)</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 3. FAISS 搜索 Top-N</span></span><br><span class="line">    distances, indices = vector_db.search(x=embedding_array, k=top_n)</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 4. 组装返回结果</span></span><br><span class="line">    retrieval_results = []</span><br><span class="line">    <span class="keyword">for</span> distance, index <span class="keyword">in</span> <span class="built_in">zip</span>(distances[<span class="number">0</span>], indices[<span class="number">0</span>]):</span><br><span class="line">        chunk = chunks[index]   <span class="comment"># 通过位置索引取回 Chunk</span></span><br><span class="line">        result = &#123;</span><br><span class="line">            <span class="string">&quot;distance&quot;</span>: <span class="built_in">round</span>(<span class="built_in">float</span>(distance), <span class="number">4</span>),</span><br><span class="line">            <span class="string">&quot;page&quot;</span>: chunk[<span class="string">&quot;page&quot;</span>],</span><br><span class="line">            <span class="string">&quot;text&quot;</span>: chunk[<span class="string">&quot;text&quot;</span>]</span><br><span class="line">        &#125;</span><br><span class="line">        retrieval_results.append(result)</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> retrieval_results</span><br></pre></td></tr></table></figure>
+
+<p>整个检索过程可以浓缩为三步：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">用户问题（文字）</span><br><span class="line">    │</span><br><span class="line">    ▼ text-embedding-3-large</span><br><span class="line">查询向量（3072 维 float32）</span><br><span class="line">    │</span><br><span class="line">    ▼ faiss.search(k=top_n)</span><br><span class="line">Top-N 相似向量的位置索引（indices）和相似度分数（distances）</span><br><span class="line">    │</span><br><span class="line">    ▼ chunks[index]</span><br><span class="line">Top-N 个最相关的 Chunk 文本</span><br></pre></td></tr></table></figure>
+
+<p><strong><code>distances</code> 返回的是什么值？</strong></p>
+<p>因为使用的是 <code>IndexFlatIP</code>（内积），<code>distances</code> 返回的是<strong>内积值</strong>，即余弦相似度（OpenAI 向量已归一化）。值域在 <code>-1</code> 到 <code>1</code> 之间，<strong>越大越相关</strong>。这与欧氏距离（L2）相反——L2 距离越小越相关，注意不要混淆。</p>
+<h3 id="2-3-静态工具方法：计算任意两段文字的相似度"><a href="#2-3-静态工具方法：计算任意两段文字的相似度" class="headerlink" title="2.3 静态工具方法：计算任意两段文字的相似度"></a>2.3 静态工具方法：计算任意两段文字的相似度</h3><p><code>VectorRetriever</code> 还提供了一个实用的静态方法，可以直接计算两段文字之间的语义相似度，不需要实例化对象：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@staticmethod</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">get_strings_cosine_similarity</span>(<span class="params">str1, str2</span>):</span><br><span class="line">    llm = VectorRetriever.set_up_llm()</span><br><span class="line">    embeddings = llm.embeddings.create(</span><br><span class="line">        <span class="built_in">input</span>=[str1, str2], </span><br><span class="line">        model=<span class="string">&quot;text-embedding-3-large&quot;</span></span><br><span class="line">    )</span><br><span class="line">    embedding1 = embeddings.data[<span class="number">0</span>].embedding</span><br><span class="line">    embedding2 = embeddings.data[<span class="number">1</span>].embedding</span><br><span class="line">    similarity = np.dot(embedding1, embedding2) / (</span><br><span class="line">        np.linalg.norm(embedding1) * np.linalg.norm(embedding2)</span><br><span class="line">    )</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">round</span>(similarity, <span class="number">4</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 使用示例</span></span><br><span class="line">score = VectorRetriever.get_strings_cosine_similarity(</span><br><span class="line">    <span class="string">&quot;公司今年赚了多少钱？&quot;</span>,</span><br><span class="line">    <span class="string">&quot;净利润同比增长 23%，达到 14.2 亿元&quot;</span></span><br><span class="line">)</span><br><span class="line"><span class="built_in">print</span>(score)  <span class="comment"># 例如：0.7823</span></span><br></pre></td></tr></table></figure>
+
+<p>这在调试阶段非常有用，比如验证某个 Chunk 和某个查询的相似度是否符合预期。</p>
+<hr>
+<h2 id="3-代码详解：BM25Retriever（关键词检索）"><a href="#3-代码详解：BM25Retriever（关键词检索）" class="headerlink" title="3. 代码详解：BM25Retriever（关键词检索）"></a>3. 代码详解：BM25Retriever（关键词检索）</h2><p>BM25 检索的代码结构和向量检索类似，但有几个关键差异。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">BM25Retriever</span>:</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, bm25_db_dir: Path, documents_dir: Path</span>):</span><br><span class="line">        <span class="variable language_">self</span>.bm25_db_dir = bm25_db_dir</span><br><span class="line">        <span class="variable language_">self</span>.documents_dir = documents_dir</span><br><span class="line">        <span class="comment"># 注意：BM25Retriever 没有预加载，是按需加载</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>注意：BM25Retriever 没有预加载</strong>，每次检索时才临时加载目标文档的索引：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">retrieve_by_company_name</span>(<span class="params">self, company_name: <span class="built_in">str</span>, query: <span class="built_in">str</span>, top_n: <span class="built_in">int</span> = <span class="number">3</span>, ...</span>) -&gt; <span class="type">List</span>[<span class="type">Dict</span>]:</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 1. 遍历文档目录，找到目标公司的文档（每次都扫描磁盘）</span></span><br><span class="line">    document_path = <span class="literal">None</span></span><br><span class="line">    <span class="keyword">for</span> path <span class="keyword">in</span> <span class="variable language_">self</span>.documents_dir.glob(<span class="string">&quot;*.json&quot;</span>):</span><br><span class="line">        <span class="keyword">with</span> <span class="built_in">open</span>(path, <span class="string">&#x27;r&#x27;</span>, encoding=<span class="string">&#x27;utf-8&#x27;</span>) <span class="keyword">as</span> f:</span><br><span class="line">            doc = json.load(f)</span><br><span class="line">            <span class="keyword">if</span> doc[<span class="string">&quot;metainfo&quot;</span>][<span class="string">&quot;company_name&quot;</span>] == company_name:</span><br><span class="line">                document_path = path</span><br><span class="line">                document = doc</span><br><span class="line">                <span class="keyword">break</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 2. 加载对应的 BM25 索引</span></span><br><span class="line">    bm25_path = <span class="variable language_">self</span>.bm25_db_dir / <span class="string">f&quot;<span class="subst">&#123;document[<span class="string">&#x27;metainfo&#x27;</span>][<span class="string">&#x27;sha1_name&#x27;</span>]&#125;</span>.pkl&quot;</span></span><br><span class="line">    <span class="keyword">with</span> <span class="built_in">open</span>(bm25_path, <span class="string">&#x27;rb&#x27;</span>) <span class="keyword">as</span> f:</span><br><span class="line">        bm25_index = pickle.load(f)</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 3. 分词查询，获取所有 Chunk 的 BM25 分数</span></span><br><span class="line">    tokenized_query = query.split()</span><br><span class="line">    scores = bm25_index.get_scores(tokenized_query)</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 4. 取 Top-N</span></span><br><span class="line">    top_indices = <span class="built_in">sorted</span>(</span><br><span class="line">        <span class="built_in">range</span>(<span class="built_in">len</span>(scores)), </span><br><span class="line">        key=<span class="keyword">lambda</span> i: scores[i], </span><br><span class="line">        reverse=<span class="literal">True</span></span><br><span class="line">    )[:top_n]</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 5. 组装结果</span></span><br><span class="line">    retrieval_results = []</span><br><span class="line">    <span class="keyword">for</span> index <span class="keyword">in</span> top_indices:</span><br><span class="line">        chunk = chunks[index]</span><br><span class="line">        retrieval_results.append(&#123;</span><br><span class="line">            <span class="string">&quot;distance&quot;</span>: <span class="built_in">round</span>(<span class="built_in">float</span>(scores[index]), <span class="number">4</span>),</span><br><span class="line">            <span class="string">&quot;page&quot;</span>: chunk[<span class="string">&quot;page&quot;</span>],</span><br><span class="line">            <span class="string">&quot;text&quot;</span>: chunk[<span class="string">&quot;text&quot;</span>]</span><br><span class="line">        &#125;)</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> retrieval_results</span><br></pre></td></tr></table></figure>
+
+<p><strong>BM25 的分数含义</strong>：BM25 打分结果是一个<strong>非负浮点数</strong>，没有固定上限，不同文档之间的绝对值不可直接比较，只有同一文档内的相对大小有意义。这和向量检索的余弦相似度（固定在 -1 到 1 之间）有本质区别。</p>
+<hr>
+<h2 id="4-Parent-Document-Retrieval：一个重要的工程技巧"><a href="#4-Parent-Document-Retrieval：一个重要的工程技巧" class="headerlink" title="4. Parent Document Retrieval：一个重要的工程技巧"></a>4. Parent Document Retrieval：一个重要的工程技巧</h2><h3 id="4-1-问题背景"><a href="#4-1-问题背景" class="headerlink" title="4.1 问题背景"></a>4.1 问题背景</h3><p>切块（Chunk）的目的是提高向量检索精度：小 Chunk 语义集中，更容易和查询匹配。但这带来了一个新问题：<strong>小 Chunk 提供给 LLM 的上下文太少，LLM 可能因信息不足而回答错误</strong>。</p>
+<p>举个例子：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">Chunk（300 tokens）：</span><br><span class="line">&quot;Revenue was USD 5,234 million, representing a 12.3% increase </span><br><span class="line">year-over-year compared to the prior period.&quot;</span><br><span class="line"></span><br><span class="line">用户问题：</span><br><span class="line">&quot;公司 2023 年 Q3 的营收是多少？&quot;</span><br></pre></td></tr></table></figure>
+
+<p>这个 Chunk 完全匹配，检索成功。但如果 LLM 需要知道 “prior period” 是哪个期间来核实数字的正确性，它就找不到答案了——因为那个信息在相邻的 Chunk 里，没有被一起检索进来。</p>
+<h3 id="4-2-解决方案：检索-Chunk，返回整页"><a href="#4-2-解决方案：检索-Chunk，返回整页" class="headerlink" title="4.2 解决方案：检索 Chunk，返回整页"></a>4.2 解决方案：检索 Chunk，返回整页</h3><p><strong>Parent Document Retrieval</strong> 的核心思路：</p>
+<ul>
+<li><strong>用小 Chunk 做检索</strong>（精度高，向量语义集中）</li>
+<li><strong>返回 Chunk 所在的整个页面给 LLM</strong>（上下文完整）</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">检索阶段：</span><br><span class="line">  查询向量 → FAISS → 命中 Chunk（300 tokens，精确）</span><br><span class="line">                          │</span><br><span class="line">                          ▼</span><br><span class="line">              找到这个 Chunk 的 page 字段（例如 page=12）</span><br><span class="line">                          │</span><br><span class="line">                          ▼</span><br><span class="line">              返回整个第 12 页的文本（1500 tokens，完整）</span><br></pre></td></tr></table></figure>
+
+<p>代码里通过 <code>return_parent_pages=True</code> 开启这个模式：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">retrieve_by_company_name</span>(<span class="params">self, ..., return_parent_pages: <span class="built_in">bool</span> = <span class="literal">False</span></span>):</span><br><span class="line">    ...</span><br><span class="line">    seen_pages = <span class="built_in">set</span>()  <span class="comment"># 防止同一页被重复返回</span></span><br><span class="line">    </span><br><span class="line">    <span class="keyword">for</span> distance, index <span class="keyword">in</span> <span class="built_in">zip</span>(distances[<span class="number">0</span>], indices[<span class="number">0</span>]):</span><br><span class="line">        chunk = chunks[index]</span><br><span class="line">        parent_page = <span class="built_in">next</span>(</span><br><span class="line">            page <span class="keyword">for</span> page <span class="keyword">in</span> pages <span class="keyword">if</span> page[<span class="string">&quot;page&quot;</span>] == chunk[<span class="string">&quot;page&quot;</span>]</span><br><span class="line">        )</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">if</span> return_parent_pages:</span><br><span class="line">            <span class="keyword">if</span> parent_page[<span class="string">&quot;page&quot;</span>] <span class="keyword">not</span> <span class="keyword">in</span> seen_pages:</span><br><span class="line">                seen_pages.add(parent_page[<span class="string">&quot;page&quot;</span>])</span><br><span class="line">                result = &#123;</span><br><span class="line">                    <span class="string">&quot;distance&quot;</span>: distance,</span><br><span class="line">                    <span class="string">&quot;page&quot;</span>: parent_page[<span class="string">&quot;page&quot;</span>],</span><br><span class="line">                    <span class="string">&quot;text&quot;</span>: parent_page[<span class="string">&quot;text&quot;</span>]   <span class="comment"># 整页文本，而不是 Chunk 文本</span></span><br><span class="line">                &#125;</span><br><span class="line">                retrieval_results.append(result)</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            result = &#123;</span><br><span class="line">                <span class="string">&quot;distance&quot;</span>: distance,</span><br><span class="line">                <span class="string">&quot;page&quot;</span>: chunk[<span class="string">&quot;page&quot;</span>],</span><br><span class="line">                <span class="string">&quot;text&quot;</span>: chunk[<span class="string">&quot;text&quot;</span>]             <span class="comment"># 仅 Chunk 文本</span></span><br><span class="line">            &#125;</span><br><span class="line">            retrieval_results.append(result)</span><br></pre></td></tr></table></figure>
+
+<p><code>seen_pages</code> 用于去重：如果两个相邻的 Chunk 恰好都在第 12 页，不会把第 12 页的内容返回两次。</p>
+<h3 id="4-3-代价与权衡"><a href="#4-3-代价与权衡" class="headerlink" title="4.3 代价与权衡"></a>4.3 代价与权衡</h3><table>
+<thead>
+<tr>
+<th>模式</th>
+<th>单条结果 Token 数</th>
+<th>优点</th>
+<th>缺点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Chunk 模式</td>
+<td>~300 tokens</td>
+<td>信噪比高，LLM 聚焦</td>
+<td>可能缺少上下文</td>
+</tr>
+<tr>
+<td>Parent Page 模式</td>
+<td>~1500 tokens</td>
+<td>上下文完整，LLM 信息充足</td>
+<td>消耗更多 LLM 上下文窗口</td>
+</tr>
+</tbody></table>
+<p>本项目最优配置（<code>max_nst_o3m_config</code>）中 <code>parent_document_retrieval=True</code>，这是经过实验验证对最终答案质量提升显著的设置。</p>
+<hr>
+<h2 id="5-LLM-重排：让-LLM-替你判断哪条结果更相关"><a href="#5-LLM-重排：让-LLM-替你判断哪条结果更相关" class="headerlink" title="5. LLM 重排：让 LLM 替你判断哪条结果更相关"></a>5. LLM 重排：让 LLM 替你判断哪条结果更相关</h2><h3 id="5-1-向量检索的天花板"><a href="#5-1-向量检索的天花板" class="headerlink" title="5.1 向量检索的天花板"></a>5.1 向量检索的天花板</h3><p>向量检索的精度取决于 Embedding 模型的语义理解能力。对于微妙的区分——比如”Q3 营收”和”Q3 净利润”——Embedding 向量可能相似度都很高，但 LLM 能一眼看出哪个才是真正的答案。</p>
+<p>这就是 LLM 重排（Reranking）的价值：用 LLM 的理解能力，对向量检索的候选集做二次精排。</p>
+<h3 id="5-2-重排的整体流程"><a href="#5-2-重排的整体流程" class="headerlink" title="5.2 重排的整体流程"></a>5.2 重排的整体流程</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">用户问题</span><br><span class="line">    │</span><br><span class="line">    ▼ 向量检索</span><br><span class="line">召回 K=28 个候选 Chunk（大撒网）</span><br><span class="line">    │</span><br><span class="line">    ▼ LLM 重排（每批 2 个 Chunk 一起评分）</span><br><span class="line">每个 Chunk 获得 0~1 的相关度分数</span><br><span class="line">    │</span><br><span class="line">    ▼ 加权融合（0.7 × LLM分 + 0.3 × 向量分）</span><br><span class="line">按综合分排序</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">取 Top-N=6 个最终结果</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-3-结构化输出：用-Pydantic-约束-LLM-的打分格式"><a href="#5-3-结构化输出：用-Pydantic-约束-LLM-的打分格式" class="headerlink" title="5.3 结构化输出：用 Pydantic 约束 LLM 的打分格式"></a>5.3 结构化输出：用 Pydantic 约束 LLM 的打分格式</h3><p>重排的评分由 LLM 输出，但 LLM 的输出如果是自由文本，解析起来很脆弱。本项目使用 <strong>Pydantic Schema + OpenAI Structured Output</strong> 来强制 LLM 返回结构化 JSON：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># src/prompts.py</span></span><br><span class="line"><span class="keyword">from</span> pydantic <span class="keyword">import</span> BaseModel, Field</span><br><span class="line"><span class="keyword">from</span> typing <span class="keyword">import</span> <span class="type">List</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">RetrievalRankingSingleBlock</span>(<span class="title class_ inherited__">BaseModel</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;单块的评分结果&quot;&quot;&quot;</span></span><br><span class="line">    reasoning: <span class="built_in">str</span> = Field(description=<span class="string">&quot;分析文本块和查询的相关性&quot;</span>)</span><br><span class="line">    relevance_score: <span class="built_in">float</span> = Field(description=<span class="string">&quot;相关度评分，0~1，越大越相关&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">RetrievalRankingMultipleBlocks</span>(<span class="title class_ inherited__">BaseModel</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;多块的评分结果&quot;&quot;&quot;</span></span><br><span class="line">    block_rankings: <span class="type">List</span>[RetrievalRankingSingleBlock]</span><br></pre></td></tr></table></figure>
+
+<p>OpenAI 的 <code>beta.chat.completions.parse()</code> API 接受这个 Pydantic 模型作为 <code>response_format</code>，<strong>保证 LLM 的输出 100% 符合这个 Schema</strong>，不需要再做额外的 JSON 解析和容错处理：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">completion = <span class="variable language_">self</span>.llm.beta.chat.completions.parse(</span><br><span class="line">    model=<span class="string">&quot;gpt-4o-mini-2024-07-18&quot;</span>,</span><br><span class="line">    temperature=<span class="number">0</span>,</span><br><span class="line">    messages=[</span><br><span class="line">        &#123;<span class="string">&quot;role&quot;</span>: <span class="string">&quot;system&quot;</span>, <span class="string">&quot;content&quot;</span>: system_prompt&#125;,</span><br><span class="line">        &#123;<span class="string">&quot;role&quot;</span>: <span class="string">&quot;user&quot;</span>, <span class="string">&quot;content&quot;</span>: user_prompt&#125;,</span><br><span class="line">    ],</span><br><span class="line">    response_format=RetrievalRankingMultipleBlocks   <span class="comment"># 直接传入 Pydantic 类</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">response = completion.choices[<span class="number">0</span>].message.parsed     <span class="comment"># 返回的直接是 Pydantic 对象</span></span><br><span class="line">rankings = response.block_rankings                  <span class="comment"># 类型安全，直接访问字段</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="5-4-重排的-Prompt-设计"><a href="#5-4-重排的-Prompt-设计" class="headerlink" title="5.4 重排的 Prompt 设计"></a>5.4 重排的 Prompt 设计</h3><p>Prompt 把评分标准描述得非常细致，0.1 为一档，共 11 档：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">system_prompt = <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">你是一个 RAG 检索结果排序器。</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">相关度评分标准（0 到 1，以 0.1 为单位）：</span></span><br><span class="line"><span class="string">  0   = 完全不相关：文本块与查询毫无关联</span></span><br><span class="line"><span class="string">  0.3 = 轻微相关：涉及查询的极小方面，缺乏实质内容</span></span><br><span class="line"><span class="string">  0.5 = 中等相关：部分回答了查询，但不完整</span></span><br><span class="line"><span class="string">  0.7 = 相关：与查询明显相关，提供了实质性信息</span></span><br><span class="line"><span class="string">  0.9 = 高度相关：几乎完整地回答了查询</span></span><br><span class="line"><span class="string">  1.0 = 完全相关：直接且全面地回答了查询</span></span><br><span class="line"><span class="string">&quot;&quot;&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>细粒度的评分标准能让 LLM 做出更有区分度的判断，而不是简单地打 0 或 1。</p>
+<h3 id="5-5-并行批处理：加速重排"><a href="#5-5-并行批处理：加速重排" class="headerlink" title="5.5 并行批处理：加速重排"></a>5.5 并行批处理：加速重排</h3><p>每次 LLM 调用都有几百毫秒的延迟。如果对 28 个候选 Chunk 逐一调用，串行执行需要几十秒。本项目用 <code>ThreadPoolExecutor</code> 并行处理：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">rerank_documents</span>(<span class="params">self, query, documents, documents_batch_size=<span class="number">2</span>, llm_weight=<span class="number">0.7</span></span>):</span><br><span class="line">    <span class="comment"># 将 28 个 Chunk 分成 14 批，每批 2 个</span></span><br><span class="line">    doc_batches = [</span><br><span class="line">        documents[i:i + documents_batch_size] </span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">0</span>, <span class="built_in">len</span>(documents), documents_batch_size)</span><br><span class="line">    ]</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">process_batch</span>(<span class="params">batch</span>):</span><br><span class="line">        texts = [doc[<span class="string">&#x27;text&#x27;</span>] <span class="keyword">for</span> doc <span class="keyword">in</span> batch]</span><br><span class="line">        <span class="comment"># 一次 LLM 调用，给 2 个 Chunk 同时打分</span></span><br><span class="line">        rankings = <span class="variable language_">self</span>.get_rank_for_multiple_blocks(query, texts)</span><br><span class="line">        </span><br><span class="line">        results = []</span><br><span class="line">        <span class="keyword">for</span> doc, rank <span class="keyword">in</span> <span class="built_in">zip</span>(batch, rankings[<span class="string">&#x27;block_rankings&#x27;</span>]):</span><br><span class="line">            doc_with_score = doc.copy()</span><br><span class="line">            doc_with_score[<span class="string">&quot;relevance_score&quot;</span>] = rank[<span class="string">&quot;relevance_score&quot;</span>]</span><br><span class="line">            <span class="comment"># 加权融合：LLM 分（0.7）+ 向量相似度分（0.3）</span></span><br><span class="line">            doc_with_score[<span class="string">&quot;combined_score&quot;</span>] = <span class="built_in">round</span>(</span><br><span class="line">                llm_weight * rank[<span class="string">&quot;relevance_score&quot;</span>] + </span><br><span class="line">                (<span class="number">1</span> - llm_weight) * doc[<span class="string">&#x27;distance&#x27;</span>],</span><br><span class="line">                <span class="number">4</span></span><br><span class="line">            )</span><br><span class="line">            results.append(doc_with_score)</span><br><span class="line">        <span class="keyword">return</span> results</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 14 批并行执行，总耗时约等于 1 次 LLM 调用的时间</span></span><br><span class="line">    <span class="keyword">with</span> ThreadPoolExecutor() <span class="keyword">as</span> executor:</span><br><span class="line">        batch_results = <span class="built_in">list</span>(executor.<span class="built_in">map</span>(process_batch, doc_batches))</span><br><span class="line">    </span><br><span class="line">    all_results = [doc <span class="keyword">for</span> batch <span class="keyword">in</span> batch_results <span class="keyword">for</span> doc <span class="keyword">in</span> batch]</span><br><span class="line">    all_results.sort(key=<span class="keyword">lambda</span> x: x[<span class="string">&quot;combined_score&quot;</span>], reverse=<span class="literal">True</span>)</span><br><span class="line">    <span class="keyword">return</span> all_results</span><br></pre></td></tr></table></figure>
+
+<p><strong>批大小（<code>documents_batch_size</code>）的选择</strong>：每批 2 个（默认值），让 LLM 同时看到两段文本并进行相对比较，比单独评分更有区分度。批太大（&gt;4）时 LLM 开始出现”排名遗忘”问题（前面的 Chunk 打分受后面影响），批太小（1 个）则 LLM 只能做绝对判断，区分度下降。</p>
+<h3 id="5-6-加权分数的含义"><a href="#5-6-加权分数的含义" class="headerlink" title="5.6 加权分数的含义"></a>5.6 加权分数的含义</h3><p>最终分数是两个维度的加权平均：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">combined_score = llm_weight × relevance_score + (1 - llm_weight) × distance</span><br><span class="line"></span><br><span class="line">默认：combined_score = 0.7 × LLM评分 + 0.3 × 向量相似度</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>分数来源</th>
+<th>权重（默认）</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>relevance_score</code>（LLM 打分）</td>
+<td>0.7（70%）</td>
+<td>LLM 对 Chunk 与查询相关性的主观判断，0~1</td>
+</tr>
+<tr>
+<td><code>distance</code>（FAISS 内积）</td>
+<td>0.3（30%）</td>
+<td>向量空间里的语义相似度，约 0~1</td>
+</tr>
+</tbody></table>
+<p>LLM 权重更高（0.7），因为 LLM 有更强的语义理解能力。向量分数作为辅助，防止 LLM 遗漏明显相关但表述特殊的 Chunk。</p>
+<hr>
+<h2 id="6-HybridRetriever：向量检索-LLM-重排的组合"><a href="#6-HybridRetriever：向量检索-LLM-重排的组合" class="headerlink" title="6. HybridRetriever：向量检索 + LLM 重排的组合"></a>6. HybridRetriever：向量检索 + LLM 重排的组合</h2><p><code>HybridRetriever</code> 是对 <code>VectorRetriever</code> 和 <code>LLMReranker</code> 的封装，对外提供统一接口：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">HybridRetriever</span>:</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, vector_db_dir: Path, documents_dir: Path</span>):</span><br><span class="line">        <span class="variable language_">self</span>.vector_retriever = VectorRetriever(vector_db_dir, documents_dir)</span><br><span class="line">        <span class="variable language_">self</span>.reranker = LLMReranker()</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">retrieve_by_company_name</span>(<span class="params"></span></span><br><span class="line"><span class="params">        self, </span></span><br><span class="line"><span class="params">        company_name: <span class="built_in">str</span>,</span></span><br><span class="line"><span class="params">        query: <span class="built_in">str</span>,</span></span><br><span class="line"><span class="params">        llm_reranking_sample_size: <span class="built_in">int</span> = <span class="number">28</span>,  <span class="comment"># 向量召回候选数量</span></span></span><br><span class="line"><span class="params">        documents_batch_size: <span class="built_in">int</span> = <span class="number">2</span>,         <span class="comment"># 每批 LLM 评分的 Chunk 数</span></span></span><br><span class="line"><span class="params">        top_n: <span class="built_in">int</span> = <span class="number">6</span>,                        <span class="comment"># 最终返回数量</span></span></span><br><span class="line"><span class="params">        llm_weight: <span class="built_in">float</span> = <span class="number">0.7</span>,               <span class="comment"># LLM 分数权重</span></span></span><br><span class="line"><span class="params">        return_parent_pages: <span class="built_in">bool</span> = <span class="literal">False</span></span></span><br><span class="line"><span class="params">    </span>) -&gt; <span class="type">List</span>[<span class="type">Dict</span>]:</span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 第一步：向量检索召回 K 个候选（大网）</span></span><br><span class="line">        vector_results = <span class="variable language_">self</span>.vector_retriever.retrieve_by_company_name(</span><br><span class="line">            company_name=company_name,</span><br><span class="line">            query=query,</span><br><span class="line">            top_n=llm_reranking_sample_size,   <span class="comment"># 注意：这里用 sample_size 而不是 top_n</span></span><br><span class="line">            return_parent_pages=return_parent_pages</span><br><span class="line">        )</span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 第二步：LLM 重排（精筛）</span></span><br><span class="line">        reranked_results = <span class="variable language_">self</span>.reranker.rerank_documents(</span><br><span class="line">            query=query,</span><br><span class="line">            documents=vector_results,</span><br><span class="line">            documents_batch_size=documents_batch_size,</span><br><span class="line">            llm_weight=llm_weight</span><br><span class="line">        )</span><br><span class="line">        </span><br><span class="line">        <span class="comment"># 第三步：返回 Top-N</span></span><br><span class="line">        <span class="keyword">return</span> reranked_results[:top_n]</span><br></pre></td></tr></table></figure>
+
+<p><strong><code>llm_reranking_sample_size</code> 和 <code>top_n</code> 的关系</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">向量检索召回 28 个候选</span><br><span class="line">    │</span><br><span class="line">    ▼ LLM 重排（对 28 个打分）</span><br><span class="line">    │</span><br><span class="line">    ▼ 取前 6 个（top_n=6）</span><br><span class="line">    │</span><br><span class="line">最终输入 LLM 的上下文</span><br></pre></td></tr></table></figure>
+
+<p>召回越多（sample_size 越大），重排后的质量越好，但 LLM 重排的 API 调用成本也越高。<code>28</code> 是本项目实验后的平衡点。</p>
+<hr>
+<h2 id="7-检索结果如何变成-LLM-的输入"><a href="#7-检索结果如何变成-LLM-的输入" class="headerlink" title="7. 检索结果如何变成 LLM 的输入"></a>7. 检索结果如何变成 LLM 的输入</h2><p>检索拿到 Chunk 之后，需要把它们格式化成一个<strong>上下文字符串</strong>，传给回答 LLM。格式化的方式直接影响 LLM 是否能正确理解来源和定位信息。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># src/questions_processing.py</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">_format_retrieval_results</span>(<span class="params">self, retrieval_results</span>) -&gt; <span class="built_in">str</span>:</span><br><span class="line">    <span class="string">&quot;&quot;&quot;把检索结果拼成 RAG Context 字符串&quot;&quot;&quot;</span></span><br><span class="line">    context_parts = []</span><br><span class="line">    <span class="keyword">for</span> result <span class="keyword">in</span> retrieval_results:</span><br><span class="line">        page_number = result[<span class="string">&#x27;page&#x27;</span>]</span><br><span class="line">        text = result[<span class="string">&#x27;text&#x27;</span>]</span><br><span class="line">        context_parts.append(</span><br><span class="line">            <span class="string">f&#x27;Text retrieved from page <span class="subst">&#123;page_number&#125;</span>: \n&quot;&quot;&quot;\n<span class="subst">&#123;text&#125;</span>\n&quot;&quot;&quot;&#x27;</span></span><br><span class="line">        )</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> <span class="string">&quot;\n\n---\n\n&quot;</span>.join(context_parts)</span><br></pre></td></tr></table></figure>
+
+<p>格式化后的上下文长这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">Text retrieved from page 12: </span><br><span class="line">&quot;&quot;&quot;</span><br><span class="line">## Financial Highlights</span><br><span class="line"></span><br><span class="line">Revenue in Q3 2023 reached USD 5,234 million, a 12.3% increase</span><br><span class="line">year-over-year...</span><br><span class="line">&quot;&quot;&quot;</span><br><span class="line"></span><br><span class="line">---</span><br><span class="line"></span><br><span class="line">Text retrieved from page 8: </span><br><span class="line">&quot;&quot;&quot;</span><br><span class="line">## Revenue Overview</span><br><span class="line"></span><br><span class="line">The company&#x27;s primary revenue streams consist of...</span><br><span class="line">&quot;&quot;&quot;</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么要标注页码？</strong></p>
+<p>这不只是为了”显示来源”，更重要的是：<strong>LLM 在回答时会引用页码作为参考（<code>relevant_pages</code> 字段），而这个页码会被验证是否确实出现在检索结果里</strong>：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">_validate_page_references</span>(<span class="params">self, claimed_pages, retrieval_results, ...</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;防止 LLM 幻觉出不存在的页码&quot;&quot;&quot;</span></span><br><span class="line">    retrieved_pages = [result[<span class="string">&#x27;page&#x27;</span>] <span class="keyword">for</span> result <span class="keyword">in</span> retrieval_results]</span><br><span class="line">    <span class="comment"># 只保留实际出现在检索结果里的页码</span></span><br><span class="line">    validated_pages = [page <span class="keyword">for</span> page <span class="keyword">in</span> claimed_pages <span class="keyword">if</span> page <span class="keyword">in</span> retrieved_pages]</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">len</span>(validated_pages) &lt; <span class="built_in">len</span>(claimed_pages):</span><br><span class="line">        removed = <span class="built_in">set</span>(claimed_pages) - <span class="built_in">set</span>(validated_pages)</span><br><span class="line">        <span class="built_in">print</span>(<span class="string">f&quot;Warning: Removed <span class="subst">&#123;<span class="built_in">len</span>(removed)&#125;</span> hallucinated page references: <span class="subst">&#123;removed&#125;</span>&quot;</span>)</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> validated_pages</span><br></pre></td></tr></table></figure>
+
+<p>这是一个关键的<strong>幻觉防控机制</strong>：LLM 有时会捏造它没有看到的页码，这段验证代码会把那些不在检索结果里的页码过滤掉，确保最终引用来源的真实性。</p>
+<hr>
+<h2 id="8-配置参数的权衡：top-n、sample-size-该怎么设？"><a href="#8-配置参数的权衡：top-n、sample-size-该怎么设？" class="headerlink" title="8. 配置参数的权衡：top_n、sample_size 该怎么设？"></a>8. 配置参数的权衡：top_n、sample_size 该怎么设？</h2><p>本项目在 <code>pipeline.py</code> 里定义了多套配置，实验了不同参数组合，最终结论如下：</p>
+<h3 id="8-1-top-n-retrieval：最终返回的-Chunk-数"><a href="#8-1-top-n-retrieval：最终返回的-Chunk-数" class="headerlink" title="8.1 top_n_retrieval：最终返回的 Chunk 数"></a>8.1 top_n_retrieval：最终返回的 Chunk 数</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 本项目不同配置的 top_n 设置</span></span><br><span class="line">base_config:      top_n_retrieval = <span class="number">10</span>   <span class="comment"># 默认值</span></span><br><span class="line">max_nst_o3m:      top_n_retrieval = <span class="number">10</span>   <span class="comment"># 最优配置（实验表现最好）</span></span><br><span class="line">big_context:      top_n_retrieval = <span class="number">14</span>   <span class="comment"># 更大上下文窗口时可适当增大</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><strong>太少（&lt; 5）</strong>：可能漏掉关键信息，LLM 上下文不足</li>
+<li><strong>太多（&gt; 15）</strong>：LLM 上下文过长，噪声增加，注意力分散，成本上升</li>
+<li><strong>建议范围：6-12</strong></li>
+</ul>
+<h3 id="8-2-llm-reranking-sample-size：LLM-重排前的向量召回数"><a href="#8-2-llm-reranking-sample-size：LLM-重排前的向量召回数" class="headerlink" title="8.2 llm_reranking_sample_size：LLM 重排前的向量召回数"></a>8.2 llm_reranking_sample_size：LLM 重排前的向量召回数</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 实验配置</span></span><br><span class="line">max_nst_o3m:        llm_reranking_sample_size = <span class="number">30</span>  （默认）</span><br><span class="line">big_context_config: llm_reranking_sample_size = <span class="number">36</span></span><br></pre></td></tr></table></figure>
+
+<p>召回数 &#x2F; 最终返回数 的比例，决定重排的”筛选强度”：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sample_size = 30, top_n = 10 → 筛选比例 3:1</span><br><span class="line">sample_size = 36, top_n = 14 → 筛选比例 2.6:1</span><br></pre></td></tr></table></figure>
+
+<p>筛选比例越高，重排的精选效果越好，但 LLM 评分的 API 开销也越大。<strong>3:1</strong> 是实验中表现较好的比例。</p>
+<h3 id="8-3-documents-batch-size：每次-LLM-调用评分的-Chunk-数"><a href="#8-3-documents-batch-size：每次-LLM-调用评分的-Chunk-数" class="headerlink" title="8.3 documents_batch_size：每次 LLM 调用评分的 Chunk 数"></a>8.3 documents_batch_size：每次 LLM 调用评分的 Chunk 数</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">HybridRetriever.retrieve_by_company_name(</span><br><span class="line">    documents_batch_size=<span class="number">2</span>   <span class="comment"># 默认值</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><strong>1（单块模式）</strong>：LLM 独立评每个 Chunk，主观判断，但无相对比较</li>
+<li><strong>2（默认）</strong>：LLM 同时看 2 个 Chunk，做相对排序，区分度更好</li>
+<li><strong>4+（批量）</strong>：LLM 一次评分多个，但超过 4 个时有遗忘问题</li>
+</ul>
+<p><strong>推荐保持默认值 2</strong>。</p>
+<h3 id="8-4-不同策略的性能对比（参考）"><a href="#8-4-不同策略的性能对比（参考）" class="headerlink" title="8.4 不同策略的性能对比（参考）"></a>8.4 不同策略的性能对比（参考）</h3><table>
+<thead>
+<tr>
+<th>策略</th>
+<th>延迟（单问题）</th>
+<th>LLM API 调用次数</th>
+<th>答案质量</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>纯向量检索</td>
+<td>~1s</td>
+<td>1 次（查询 Embedding）+ 1 次（回答）</td>
+<td>一般</td>
+</tr>
+<tr>
+<td>向量检索 + 重排（sample&#x3D;30, batch&#x3D;2）</td>
+<td>~3-5s</td>
+<td>1 + 15 次（重排）+ 1（回答）</td>
+<td>高</td>
+</tr>
+<tr>
+<td>全文上下文（retrieve_all）</td>
+<td>~10s</td>
+<td>0（无检索）+ 1 次（超长上下文回答）</td>
+<td>取决于模型上下文窗口</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="9-常见错误与踩坑指南"><a href="#9-常见错误与踩坑指南" class="headerlink" title="9. 常见错误与踩坑指南"></a>9. 常见错误与踩坑指南</h2><h3 id="坑-1：查询和索引用了不同的-Embedding-模型"><a href="#坑-1：查询和索引用了不同的-Embedding-模型" class="headerlink" title="坑 1：查询和索引用了不同的 Embedding 模型"></a>坑 1：查询和索引用了不同的 Embedding 模型</h3><p><strong>这是最致命的错误，会导致检索结果完全随机</strong>。建索引时用了 <code>text-embedding-3-large</code>，检索时不小心用了 <code>text-embedding-ada-002</code>，两个模型的向量空间完全不同，计算出来的相似度毫无意义。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># ❌ 错误：索引用 large，查询用 ada</span></span><br><span class="line">index_embedding = openai.embeddings.create(<span class="built_in">input</span>=text, model=<span class="string">&quot;text-embedding-3-large&quot;</span>)</span><br><span class="line">query_embedding = openai.embeddings.create(<span class="built_in">input</span>=query, model=<span class="string">&quot;text-embedding-ada-002&quot;</span>)  <span class="comment"># 不一致！</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># ✅ 正确：始终使用同一个模型</span></span><br><span class="line">MODEL = <span class="string">&quot;text-embedding-3-large&quot;</span></span><br><span class="line">index_embedding = openai.embeddings.create(<span class="built_in">input</span>=text, model=MODEL)</span><br><span class="line">query_embedding = openai.embeddings.create(<span class="built_in">input</span>=query, model=MODEL)</span><br></pre></td></tr></table></figure>
+
+<p>建议把模型名定义为常量，两处引用同一个变量，从根本上避免这个问题。</p>
+<h3 id="坑-2：return-parent-pages-True-时-top-n-需要相应调整"><a href="#坑-2：return-parent-pages-True-时-top-n-需要相应调整" class="headerlink" title="坑 2：return_parent_pages=True 时 top_n 需要相应调整"></a>坑 2：<code>return_parent_pages=True</code> 时 top_n 需要相应调整</h3><p>开启 Parent Page 模式后，多个 Chunk 可能映射到同一页，导致实际返回的结果少于 <code>top_n</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">top_n=10，但 Chunk 1、3、7 都在第 12 页</span><br><span class="line">→ 去重后实际只返回 8 页内容（不是 10 个）</span><br></pre></td></tr></table></figure>
+
+<p>如果你的下游逻辑依赖精确的 top_n 数量，需要考虑这个情况。实践建议是把 top_n 设得稍大一点（比如 12），预留去重后的余量。</p>
+<h3 id="坑-3：BM25-分数和向量分数不能直接加权"><a href="#坑-3：BM25-分数和向量分数不能直接加权" class="headerlink" title="坑 3：BM25 分数和向量分数不能直接加权"></a>坑 3：BM25 分数和向量分数不能直接加权</h3><p>BM25 分数是无界的正数（可以是 0、3.5、12.7…），向量相似度固定在 0-1 之间。直接加权融合两者在数学上是错的：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># ❌ 错误：量纲不一致，BM25 分数会主导结果</span></span><br><span class="line">combined = <span class="number">0.5</span> * bm25_score + <span class="number">0.5</span> * vector_similarity</span><br><span class="line"></span><br><span class="line"><span class="comment"># ✅ 正确做法一：对 BM25 分数做 MinMax 归一化</span></span><br><span class="line">max_score = <span class="built_in">max</span>(bm25_scores)</span><br><span class="line">normalized_bm25 = [s / max_score <span class="keyword">for</span> s <span class="keyword">in</span> bm25_scores]</span><br><span class="line"></span><br><span class="line"><span class="comment"># ✅ 正确做法二：分别排名，然后融合排名（Reciprocal Rank Fusion）</span></span><br></pre></td></tr></table></figure>
+
+<p>本项目的 <code>HybridRetriever</code> 只使用向量分数做加权基础（BM25 和向量是两个独立的 Retriever，不做融合），这避开了这个问题。</p>
+<h3 id="坑-4：LLM-重排的结果数量可能少于预期"><a href="#坑-4：LLM-重排的结果数量可能少于预期" class="headerlink" title="坑 4：LLM 重排的结果数量可能少于预期"></a>坑 4：LLM 重排的结果数量可能少于预期</h3><p>LLM 在批量评分时偶尔会”少输出”一个结果（比如要求评 2 个 Chunk，只给了 1 个评分）。代码中已做保护：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> <span class="built_in">len</span>(block_rankings) &lt; <span class="built_in">len</span>(batch):</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">f&quot;Warning: Expected <span class="subst">&#123;<span class="built_in">len</span>(batch)&#125;</span> rankings but got <span class="subst">&#123;<span class="built_in">len</span>(block_rankings)&#125;</span>&quot;</span>)</span><br><span class="line">    <span class="comment"># 对缺失的 Chunk 补充默认评分 0.0</span></span><br><span class="line">    <span class="keyword">for</span> _ <span class="keyword">in</span> <span class="built_in">range</span>(<span class="built_in">len</span>(batch) - <span class="built_in">len</span>(block_rankings)):</span><br><span class="line">        block_rankings.append(&#123;</span><br><span class="line">            <span class="string">&quot;relevance_score&quot;</span>: <span class="number">0.0</span>,</span><br><span class="line">            <span class="string">&quot;reasoning&quot;</span>: <span class="string">&quot;Default ranking due to missing LLM response&quot;</span></span><br><span class="line">        &#125;)</span><br></pre></td></tr></table></figure>
+
+<p>这个保护逻辑非常重要——如果不处理，<code>zip(batch, rankings)</code> 会默默丢掉多余的 Chunk，导致数据错位。</p>
+<h3 id="坑-5：预加载索引时内存消耗"><a href="#坑-5：预加载索引时内存消耗" class="headerlink" title="坑 5：预加载索引时内存消耗"></a>坑 5：预加载索引时内存消耗</h3><p><code>VectorRetriever._load_dbs()</code> 会把所有文档的 FAISS 索引和 JSON 数据全部加载进内存。如果有 100 个文档，每个文档有 500 个 Chunk，每个向量 3072 维 float32：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">100 文档 × 500 Chunk × 3072 维 × 4 字节 = ~600MB</span><br></pre></td></tr></table></figure>
+
+<p>加上 JSON 文档数据，总内存消耗可能超过 1GB。在内存受限的环境（如小型云服务器）中需要注意，可以考虑按需加载或使用内存映射（mmap）。</p>
+<hr>
+<h2 id="10-完整检索流程串联"><a href="#10-完整检索流程串联" class="headerlink" title="10. 完整检索流程串联"></a>10. 完整检索流程串联</h2><p>将三篇串联起来，从原始 PDF 到最终答案的完整流程如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">原始 PDF</span><br><span class="line">    │</span><br><span class="line">    ▼ [第一篇] 文档解析与切块</span><br><span class="line">databases/chunked_reports/abc123.json</span><br><span class="line">    &#123;</span><br><span class="line">      &quot;metainfo&quot;: &#123; &quot;company_name&quot;: &quot;Example Corp&quot;, ... &#125;,</span><br><span class="line">      &quot;content&quot;: &#123;</span><br><span class="line">        &quot;chunks&quot;: [&#123;&quot;id&quot;: 0, &quot;page&quot;: 1, &quot;text&quot;: &quot;...&quot;&#125;, ...],</span><br><span class="line">        &quot;pages&quot;: [&#123;&quot;page&quot;: 1, &quot;text&quot;: &quot;整页 Markdown 文本&quot;&#125;, ...]</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    │</span><br><span class="line">    ▼ [第二篇] 向量化与索引构建</span><br><span class="line">databases/vector_dbs/abc123.faiss   ← FAISS 向量索引</span><br><span class="line">databases/bm25_dbs/abc123.pkl       ← BM25 稀疏索引</span><br><span class="line">    │</span><br><span class="line">    ▼ [本篇] 检索</span><br><span class="line">用户问题：&quot;Example Corp 2023 年 Q3 营收是多少？&quot;</span><br><span class="line">    │</span><br><span class="line">    ├─ VectorRetriever（向量检索）</span><br><span class="line">    │     查询 Embedding → FAISS.search → Top-28 候选 Chunk</span><br><span class="line">    │</span><br><span class="line">    ├─ LLMReranker（重排）</span><br><span class="line">    │     14 批 × 并行 LLM 评分 → 加权融合分数 → 重新排序</span><br><span class="line">    │</span><br><span class="line">    └─ 返回 Top-6 最相关 Chunk（或整页，取决于 return_parent_pages）</span><br><span class="line">    │</span><br><span class="line">    ▼ 格式化为 RAG Context</span><br><span class="line">&quot;Text retrieved from page 12: \&quot;Revenue in Q3 2023 was...\&quot;\n\n---\n\n...&quot;</span><br><span class="line">    │</span><br><span class="line">    ▼ LLM 回答</span><br><span class="line">&#123;</span><br><span class="line">  &quot;step_by_step_analysis&quot;: &quot;...&quot;,</span><br><span class="line">  &quot;relevant_pages&quot;: [12, 8],</span><br><span class="line">  &quot;final_answer&quot;: 5234.0</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="快速上手代码（最小可运行示例）"><a href="#快速上手代码（最小可运行示例）" class="headerlink" title="快速上手代码（最小可运行示例）"></a>快速上手代码（最小可运行示例）</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pathlib <span class="keyword">import</span> Path</span><br><span class="line"><span class="keyword">from</span> src.retrieval <span class="keyword">import</span> VectorRetriever, HybridRetriever</span><br><span class="line"></span><br><span class="line"><span class="comment"># 初始化（预加载所有索引，耗时几秒）</span></span><br><span class="line">retriever = VectorRetriever(</span><br><span class="line">    vector_db_dir=Path(<span class="string">&quot;databases/vector_dbs&quot;</span>),</span><br><span class="line">    documents_dir=Path(<span class="string">&quot;databases/chunked_reports&quot;</span>)</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 基础向量检索</span></span><br><span class="line">results = retriever.retrieve_by_company_name(</span><br><span class="line">    company_name=<span class="string">&quot;Example Corp&quot;</span>,</span><br><span class="line">    query=<span class="string">&quot;What was the revenue in Q3 2023?&quot;</span>,</span><br><span class="line">    top_n=<span class="number">5</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> r <span class="keyword">in</span> results:</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">f&quot;[Page <span class="subst">&#123;r[<span class="string">&#x27;page&#x27;</span>]&#125;</span>] 相似度: <span class="subst">&#123;r[<span class="string">&#x27;distance&#x27;</span>]:<span class="number">.4</span>f&#125;</span>&quot;</span>)</span><br><span class="line">    <span class="built_in">print</span>(r[<span class="string">&#x27;text&#x27;</span>][:<span class="number">200</span>])</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;---&quot;</span>)</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 开启 Parent Document Retrieval（返回整页而非 Chunk）</span></span><br><span class="line">results = retriever.retrieve_by_company_name(</span><br><span class="line">    company_name=<span class="string">&quot;Example Corp&quot;</span>,</span><br><span class="line">    query=<span class="string">&quot;What was the revenue in Q3 2023?&quot;</span>,</span><br><span class="line">    top_n=<span class="number">5</span>,</span><br><span class="line">    return_parent_pages=<span class="literal">True</span>   <span class="comment"># 检索 Chunk，返回整页</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 使用带 LLM 重排的 HybridRetriever（最高精度）</span></span><br><span class="line"><span class="keyword">from</span> src.retrieval <span class="keyword">import</span> HybridRetriever</span><br><span class="line"></span><br><span class="line">hybrid = HybridRetriever(</span><br><span class="line">    vector_db_dir=Path(<span class="string">&quot;databases/vector_dbs&quot;</span>),</span><br><span class="line">    documents_dir=Path(<span class="string">&quot;databases/chunked_reports&quot;</span>)</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">results = hybrid.retrieve_by_company_name(</span><br><span class="line">    company_name=<span class="string">&quot;Example Corp&quot;</span>,</span><br><span class="line">    query=<span class="string">&quot;What was the revenue in Q3 2023?&quot;</span>,</span><br><span class="line">    llm_reranking_sample_size=<span class="number">28</span>,   <span class="comment"># 向量召回 28 个候选</span></span><br><span class="line">    documents_batch_size=<span class="number">2</span>,          <span class="comment"># 每批 2 个 Chunk 给 LLM 评分</span></span><br><span class="line">    top_n=<span class="number">6</span>,                         <span class="comment"># 最终返回 6 个</span></span><br><span class="line">    llm_weight=<span class="number">0.7</span>,                  <span class="comment"># LLM 分数权重</span></span><br><span class="line">    return_parent_pages=<span class="literal">True</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>检索阶段是 RAG 系统中<strong>最直接决定答案质量</strong>的环节。一个好的检索器能把正确的信息送到 LLM 面前；一个差的检索器，无论 LLM 多强大，也无法回答它没看到的内容。</p>
+<p>本项目的检索策略要点回顾：</p>
+<ol>
+<li><strong>向量检索是基础</strong>：语义匹配，速度快，适合大多数查询场景</li>
+<li><strong>查询和索引必须用同一个 Embedding 模型</strong>，这是最不能犯的错误</li>
+<li><strong>Parent Document Retrieval 是性价比极高的技巧</strong>：用小 Chunk 精准定位，返回整页保证上下文完整</li>
+<li><strong>LLM 重排可以显著提升精度</strong>，但有成本代价，适合质量要求高的生产场景</li>
+<li><strong>加权融合需要注意量纲</strong>：BM25 分数和向量分数不能直接混合</li>
+<li><strong>幻觉防控不能省</strong>：验证 LLM 引用的页码是否确实来自检索结果</li>
+</ol>
+<hr>
+<blockquote>
+<p>本系列下一篇：<a href="#">RAG实战（四）-问答生成</a>，介绍如何设计 Prompt、如何处理不同类型的问题、如何做结构化输出。</p>
+</blockquote>
+<p><em>本文基于 RAG-Challenge-2 项目的工程实践总结，参考代码见 <code>src/retrieval.py</code>、<code>src/reranking.py</code>、<code>src/questions_processing.py</code>、<code>src/pipeline.py</code>。</em></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer"><script src="https://giscus.app/client.js"
+        data-repo="2023Andrewyang/2023Andrewyang.github.io"
+        data-repo-id="R_kgDORLUYLQ"
+        data-category="General"
+        data-category-id="DIC_kwDORLUYLc4C2JUx"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="preferred_color_scheme"
+        data-lang="zh-CN"
+        crossorigin="anonymous"
+        async>
+</script>
+
+
+
+
+          <div class="post-tags">
+              <a href="/tags/RAG/" rel="tag"># RAG</a>
+              <a href="/tags/LLM/" rel="tag"># LLM</a>
+              <a href="/tags/AI/" rel="tag"># AI</a>
+              <a href="/tags/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" rel="tag"># 学习笔记</a>
+              <a href="/tags/Python/" rel="tag"># Python</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2026/03/16/RAG%E5%AE%9E%E6%88%98%EF%BC%88%E4%BA%8C%EF%BC%89-%E5%90%91%E9%87%8F%E5%8C%96%E4%B8%8E%E7%B4%A2%E5%BC%95%E6%9E%84%E5%BB%BA/" rel="prev" title="RAG实战（二）-向量化与索引构建">
+                  <i class="fa fa-angle-left"></i> RAG实战（二）-向量化与索引构建
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2026/03/18/RAG%E5%AE%9E%E6%88%98%EF%BC%88%E5%9B%9B%EF%BC%89-%E9%97%AE%E7%AD%94%E7%94%9F%E6%88%90/" rel="next" title="RAG实战（四）-问答生成">
+                  RAG实战（四）-问答生成 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa fa-heart"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">Andrew Yang</span>
+  </div>
+<div class="wordcount">
+  <span class="post-meta-item">
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-line"></i>
+    </span>
+    <span title="站点总字数">60k</span>
+  </span>
+  <span class="post-meta-item">
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">3:37</span>
+  </span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+</body>
+</html>
